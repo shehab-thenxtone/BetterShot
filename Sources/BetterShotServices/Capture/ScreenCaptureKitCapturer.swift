@@ -17,8 +17,8 @@ public struct ScreenCaptureKitCapturer: ScreenCapturer {
                 try await captureDisplay(displayID, area: nil, scale: scale, content: content)
             case .area(let displayID, let rect, let scale):
                 try await captureDisplay(displayID, area: rect, scale: scale, content: content)
-            case .window(let windowID, let scale):
-                try await captureWindow(windowID, scale: scale, content: content)
+            case .window(let windowID):
+                try await captureWindow(windowID, content: content)
             }
             return CaptureResult(image: image)
         } catch let error as CaptureError {
@@ -50,7 +50,7 @@ public struct ScreenCaptureKitCapturer: ScreenCapturer {
         return try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration)
     }
 
-    private func captureWindow(_ windowID: UInt32, scale: CGFloat, content: SCShareableContent) async throws -> CGImage {
+    private func captureWindow(_ windowID: UInt32, content: SCShareableContent) async throws -> CGImage {
         guard let window = content.windows.first(where: { $0.windowID == windowID }) else {
             throw CaptureError.windowNotFound
         }

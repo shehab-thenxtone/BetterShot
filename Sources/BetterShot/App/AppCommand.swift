@@ -25,14 +25,21 @@ protocol AppCommandHandler: AnyObject {
 @MainActor
 final class AppCommandRouter: AppCommandHandler {
     private let logger = Logger(subsystem: "com.bettershot.app", category: "commands")
+    private let captureCoordinator: CaptureCoordinator
+
+    init(captureCoordinator: CaptureCoordinator) {
+        self.captureCoordinator = captureCoordinator
+    }
 
     func perform(_ command: AppCommand) {
         switch command {
+        case .capture(let mode):
+            Task { await captureCoordinator.start(mode) }
         case .about:
             NSApp.orderFrontStandardAboutPanel(nil)
         case .quit:
             NSApp.terminate(nil)
-        case .capture, .toggleHideDesktopIcons, .openFile, .pinToScreen,
+        case .toggleHideDesktopIcons, .openFile, .pinToScreen,
              .restoreRecentlyClosed, .checkForUpdates, .preferences:
             logger.notice("Not implemented yet: \(String(describing: command), privacy: .public)")
         }

@@ -42,6 +42,7 @@ Sources/
 └── BetterShot/              App target (executable). AppKit/SwiftUI only.
     ├── App/                 @main, AppDelegate, dependency container
     ├── MenuBar/             NSStatusItem + menu (§3.1 items 1–17)
+    ├── Capture/             CaptureCoordinator (permission → overlay → capture → hand-off), alerts, clipboard sink
     ├── Hotkeys/             Global shortcut registry + remapping
     ├── Overlay/             Crosshair/area/window selection windows
     ├── Preview/             Floating post-capture popup (§3.2)
@@ -82,7 +83,7 @@ Folders appear as the phase that needs them lands — none are created empty.
 | 13 | Destinations | iCloud, Google Drive, OneDrive (OAuth), WhatsApp/Telegram handoff + web fallback. |
 | 14 | Polish | Light/dark, VoiceOver labels, tooltips, <200 ms check, update check. |
 
-Phases 0–2 are done in this first pass; 3+ follow.
+**Status:** phases 0–3 done. Phase 3 hands captures to the clipboard as a stand-in; phase 4 replaces that with the preview popup. Interactive overlay behaviour (drag, Space-to-move, arrow nudging, window hover, multi-display) is implemented but needs manual verification with Screen Recording permission granted.
 
 ## 4. Risks & open items
 - **Screen-recording permission (TCC):** ad-hoc rebuilds can re-prompt; `bundle.sh` signs with a stable identity when available (§4.3).

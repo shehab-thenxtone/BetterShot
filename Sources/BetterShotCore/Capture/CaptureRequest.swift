@@ -6,7 +6,8 @@ public enum CaptureRequest: Equatable, Sendable {
     case display(displayID: UInt32, scale: CGFloat)
     /// `rect` is display-local, top-left origin, in points.
     case area(displayID: UInt32, rect: CGRect, scale: CGFloat)
-    case window(windowID: UInt32, scale: CGFloat)
+    /// Output scale comes from the window's display; ScreenCaptureKit reports it.
+    case window(windowID: UInt32)
 }
 
 /// A finished still capture, ready for the post-capture flow.
