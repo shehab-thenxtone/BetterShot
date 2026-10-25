@@ -1,4 +1,7 @@
-// Placeholder entry point; replaced by the menu-bar app shell in the next commit.
-import BetterShotCore
+import AppKit
 
-print("BetterShot")
+let application = NSApplication.shared
+let appDelegate = AppDelegate()
+application.delegate = appDelegate
+application.setActivationPolicy(.accessory) // menu-bar agent: no Dock icon
+application.run()
