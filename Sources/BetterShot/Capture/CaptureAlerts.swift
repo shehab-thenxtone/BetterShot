@@ -18,6 +18,18 @@ enum CaptureAlerts {
         alert.runModal()
     }
 
+    static func present(_ error: SaveError) {
+        presentInfo(title: "Couldn't save", message: error.errorDescription ?? "Unknown error.", style: .warning)
+    }
+
+    static func presentInfo(title: String, message: String, style: NSAlert.Style = .informational) {
+        let alert = NSAlert()
+        alert.alertStyle = style
+        alert.messageText = title
+        alert.informativeText = message
+        alert.runModal()
+    }
+
     static func presentPermissionDenied() {
         let alert = NSAlert()
         alert.alertStyle = .warning

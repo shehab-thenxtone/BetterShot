@@ -83,7 +83,7 @@ Folders appear as the phase that needs them lands — none are created empty.
 | 13 | Destinations | iCloud, Google Drive, OneDrive (OAuth), WhatsApp/Telegram handoff + web fallback. |
 | 14 | Polish | Light/dark, VoiceOver labels, tooltips, <200 ms check, update check. |
 
-**Status:** phases 0–3 done. Phase 3 hands captures to the clipboard as a stand-in; phase 4 replaces that with the preview popup. Interactive overlay behaviour (drag, Space-to-move, arrow nudging, window hover, multi-display) is implemented but needs manual verification with Screen Recording permission granted.
+**Status:** phases 0–4 done. After a capture the preview popup appears bottom-right with Copy, Save (silent, remembered folder, never overwrites) and Upload (follows the default storage target; only Local exists yet). Pin is disabled until phase 8 and clicking the thumbnail does nothing until the phase 7 editor. Settings use defaults until phase 5 persists them. Interactive behaviour (overlay drag, Space-to-move, arrow nudging, window hover, multi-display, popup placement/dismissal) is implemented but needs manual verification with Screen Recording permission granted.
 
 ## 4. Risks & open items
 - **Screen-recording permission (TCC):** ad-hoc rebuilds can re-prompt; `bundle.sh` signs with a stable identity when available (§4.3).
