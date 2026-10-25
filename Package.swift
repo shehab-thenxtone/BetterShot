@@ -10,7 +10,10 @@ let package = Package(
     targets: [
         // Pure Swift domain layer: no AppKit, no I/O.
         .target(name: "BetterShotCore"),
-        .executableTarget(name: "BetterShot", dependencies: ["BetterShotCore"]),
+        // Side-effecting implementations of Core protocols (ScreenCaptureKit, storage).
+        .target(name: "BetterShotServices", dependencies: ["BetterShotCore"]),
+        .executableTarget(name: "BetterShot", dependencies: ["BetterShotCore", "BetterShotServices"]),
         .testTarget(name: "BetterShotCoreTests", dependencies: ["BetterShotCore"]),
+        .testTarget(name: "BetterShotServicesTests", dependencies: ["BetterShotCore", "BetterShotServices"]),
     ]
 )
