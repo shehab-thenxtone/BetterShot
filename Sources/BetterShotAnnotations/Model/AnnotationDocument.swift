@@ -35,6 +35,15 @@ public struct AnnotationDocument: Equatable, Sendable {
         AnnotationDocument(canvasSize: canvasSize, annotations: annotations + [Annotation(id: id, kind: kind, style: style)])
     }
 
+    /// Adds several annotations in one edit, so they are a single undo step (e.g. one snapped highlight per text line).
+    public func adding(contentsOf kinds: [AnnotationKind], style: AnnotationStyle) -> AnnotationDocument {
+        guard !kinds.isEmpty else { return self }
+        return AnnotationDocument(
+            canvasSize: canvasSize,
+            annotations: annotations + kinds.map { Annotation(kind: $0, style: style) }
+        )
+    }
+
     public func removing(id: UUID) -> AnnotationDocument {
         AnnotationDocument(canvasSize: canvasSize, annotations: annotations.filter { $0.id != id })
     }

@@ -27,6 +27,21 @@ struct AnnotationDocumentTests {
         #expect(second.annotations[1].id != second.annotations[0].id)
     }
 
+    @Test func addingSeveralKindsAppendsThemInOrderWithDistinctIds() {
+        let doc = makeDocument().adding(box(0, 0), style: style)
+        let added = doc.adding(contentsOf: [box(10, 10), box(20, 20), box(30, 30)], style: style)
+
+        #expect(added.annotations.count == 4)
+        #expect(added.annotations.dropFirst().map(\.kind) == [box(10, 10), box(20, 20), box(30, 30)])
+        #expect(Set(added.annotations.map(\.id)).count == 4)
+        #expect(doc.annotations.count == 1)
+    }
+
+    @Test func addingNoKindsReturnsTheSameDocument() {
+        let doc = makeDocument().adding(box(0, 0), style: style)
+        #expect(doc.adding(contentsOf: [], style: style) == doc)
+    }
+
     @Test func removingDeletesOnlyTheGivenAnnotation() {
         let doc = makeDocument().adding(box(0, 0), style: style).adding(box(50, 0), style: style)
         let removed = doc.removing(id: doc.annotations[0].id)
