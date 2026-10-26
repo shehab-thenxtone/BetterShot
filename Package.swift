@@ -13,7 +13,7 @@ let package = Package(
         // Annotation document model, undo history and CoreGraphics flattening. No UI, no dependencies.
         .target(name: "BetterShotAnnotations"),
         // Side-effecting implementations of Core protocols (ScreenCaptureKit, storage).
-        .target(name: "BetterShotServices", dependencies: ["BetterShotCore"]),
+        .target(name: "BetterShotServices", dependencies: ["BetterShotCore", "BetterShotAnnotations"]),
         .executableTarget(name: "BetterShot", dependencies: ["BetterShotCore", "BetterShotServices"]),
         .testTarget(name: "BetterShotCoreTests", dependencies: ["BetterShotCore"]),
         .testTarget(name: "BetterShotServicesTests", dependencies: ["BetterShotCore", "BetterShotServices"]),
