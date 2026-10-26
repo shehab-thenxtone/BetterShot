@@ -18,8 +18,17 @@ final class PostCaptureFlow {
         self.settings = settings
     }
 
-    func present(_ result: CaptureResult) {
+    /// Opens the annotation editor for an image. Set after construction because the editor hands results back here.
+    var openEditor: (@MainActor (CGImage) -> Void)?
+
+    /// Shows the preview popup, or jumps straight into the editor when "open editor automatically" is on.
+    /// The editor passes `opensEditorIfConfigured: false` when finishing so it doesn't reopen itself.
+    func present(_ result: CaptureResult, opensEditorIfConfigured: Bool = true) {
         let image = result.image
+        if opensEditorIfConfigured, settings().opensEditorAfterCapture, let openEditor {
+            openEditor(image)
+            return
+        }
         panel.show(
             image: image,
             isPinAvailable: false, // phase 8
@@ -29,12 +38,17 @@ final class PostCaptureFlow {
                 save: { [weak self] in self?.save(image) },
                 pin: {},
                 upload: { [weak self] in self?.upload(image) },
-                edit: { [weak self] in self?.logger.notice("Editor not implemented yet (phase 7)") }
+                edit: { [weak self] in self?.edit(image) }
             )
         )
     }
 
     // MARK: Actions
+
+    private func edit(_ image: CGImage) {
+        panel.dismiss()
+        openEditor?(image)
+    }
 
     private func copy(_ image: CGImage) {
         ImageClipboard.copy(image)

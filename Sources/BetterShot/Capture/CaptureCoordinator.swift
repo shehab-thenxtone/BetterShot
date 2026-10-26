@@ -24,27 +24,39 @@ final class CaptureCoordinator {
         self.deliver = deliver
     }
 
+    /// A normal capture: select, capture, then hand the result to the post-capture flow.
     func start(_ mode: CaptureMode) async {
-        guard !isBusy else { return }
+        guard let result = await capture(mode) else { return }
+        deliver(result)
+    }
+
+    /// Captures without delivering, for callers that use the image themselves (the editor's Merge tool).
+    func captureImage(_ mode: CaptureMode) async -> CaptureResult? {
+        await capture(mode)
+    }
+
+    private func capture(_ mode: CaptureMode) async -> CaptureResult? {
+        guard !isBusy else { return nil }
         isBusy = true
         defer { isBusy = false }
 
         guard ScreenRecordingPermission.isGranted else {
             ScreenRecordingPermission.request()
             CaptureAlerts.presentPermissionDenied()
-            return
+            return nil
         }
-        guard let request = await resolveRequest(for: mode) else { return }
+        guard let request = await resolveRequest(for: mode) else { return nil }
 
         do {
             let result = try await capturer.capture(request)
             if case .area(let displayID, let rect, _) = request {
                 previousAreaStore.save(PreviousArea(displayID: displayID, rect: rect))
             }
-            deliver(result)
+            return result
         } catch {
             logger.error("Capture failed: \(error.localizedDescription, privacy: .public)")
             CaptureAlerts.present(error)
+            return nil
         }
     }
 

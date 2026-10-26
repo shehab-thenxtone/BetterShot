@@ -7,12 +7,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // Strong references for the app's lifetime; nothing here is torn down before quit.
     private var settingsModel: SettingsModel?
     private var postCaptureFlow: PostCaptureFlow?
+    private var editorPresenter: EditorPresenter?
     private var preferences: PreferencesWindowController?
     private var router: AppCommandRouter?
     private var hotkeyController: HotkeyController?
     private var statusItemController: StatusItemController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        MainMenu.install()
+
         // Composition root.
         let model = SettingsModel(store: UserDefaultsSettingsStore())
         let folderStore = UserDefaultsSaveFolderStore()
@@ -22,6 +25,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             previousAreaStore: UserDefaultsPreviousAreaStore(),
             deliver: { flow.present($0) }
         )
+        let editor = EditorPresenter(stylesStore: UserDefaultsToolStylesStore(), folderStore: folderStore, settings: { model.settings })
+        flow.openEditor = { editor.open(image: $0) }
+        editor.onDone = { flow.present(CaptureResult(image: $0), opensEditorIfConfigured: false) }
+        editor.captureForMerge = { mode in await coordinator.captureImage(mode)?.image }
+
         let preferences = PreferencesWindowController(model: model, folderStore: folderStore)
         let router = AppCommandRouter(captureCoordinator: coordinator, showPreferences: { preferences.show() })
         let statusItem = StatusItemController(handler: router, hotkeys: model.settings.hotkeys)
@@ -29,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         settingsModel = model
         postCaptureFlow = flow
+        editorPresenter = editor
         self.preferences = preferences
         self.router = router
         statusItemController = statusItem
