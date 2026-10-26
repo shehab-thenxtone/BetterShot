@@ -8,10 +8,11 @@ struct CommandPresentation {
 }
 
 extension AppCommand {
-    var presentation: CommandPresentation {
+    /// `hotkeys` supplies the user's current capture shortcuts so the menu shows what's actually bound.
+    func presentation(hotkeys: HotkeyBindings) -> CommandPresentation {
         switch self {
         case .capture(let mode):
-            CommandPresentation(title: mode.title, symbolName: mode.symbolName, shortcut: mode.defaultShortcut)
+            CommandPresentation(title: mode.title, symbolName: mode.symbolName, shortcut: hotkeys.shortcut(for: mode))
         case .toggleHideDesktopIcons:
             CommandPresentation(title: "Hide Desktop Icons", symbolName: "eye.slash", shortcut: nil)
         case .openFile:
@@ -36,7 +37,7 @@ extension AppCommand {
     }
 }
 
-private extension CaptureMode {
+extension CaptureMode {
     var title: String {
         switch self {
         case .allInOne: "All-In-One"

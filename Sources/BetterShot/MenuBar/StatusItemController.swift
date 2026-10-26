@@ -6,11 +6,19 @@ import BetterShotCore
 final class StatusItemController: NSObject {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private unowned let handler: any AppCommandHandler
+    private var hotkeys: HotkeyBindings
 
-    init(handler: any AppCommandHandler) {
+    init(handler: any AppCommandHandler, hotkeys: HotkeyBindings) {
         self.handler = handler
+        self.hotkeys = hotkeys
         super.init()
         configureButton()
+        statusItem.menu = buildMenu()
+    }
+
+    /// Re-labels the menu's shortcuts after the user remaps them in Preferences.
+    func updateHotkeys(_ hotkeys: HotkeyBindings) {
+        self.hotkeys = hotkeys
         statusItem.menu = buildMenu()
     }
 
@@ -43,7 +51,7 @@ final class StatusItemController: NSObject {
     }
 
     private func item(for command: AppCommand) -> NSMenuItem {
-        let presentation = command.presentation
+        let presentation = command.presentation(hotkeys: hotkeys)
         let item = NSMenuItem(title: presentation.title, action: #selector(menuItemSelected(_:)), keyEquivalent: "")
         item.target = self
         item.representedObject = CommandBox(command)
