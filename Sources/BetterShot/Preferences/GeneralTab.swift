@@ -35,6 +35,17 @@ struct GeneralTab: View {
                 }
             }
 
+            Section("Capture") {
+                Picker("Self-timer delay", selection: binding(\.selfTimerDelay) { $0.updating(selfTimerDelay: $1) }) {
+                    ForEach(SelfTimerDelay.allCases, id: \.self) { Text("\($0.seconds) seconds").tag($0) }
+                }
+                Toggle("Keep desktop icons hidden after capture",
+                       isOn: binding(\.keepsDesktopIconsHidden) { $0.updating(keepsDesktopIconsHidden: $1) })
+                Text("Off: Hide Desktop Icons is temporary and the icons return after your next capture.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("After capture") {
                 LabeledContent("Hide preview after") {
                     HStack {

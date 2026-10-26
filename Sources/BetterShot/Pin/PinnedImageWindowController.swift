@@ -10,6 +10,8 @@ final class PinnedImageWindowController: NSObject, NSWindowDelegate {
     private static let maximumScreenFraction: CGFloat = 0.6
 
     private var panel: NSPanel?
+    /// The pinned picture, so closing the pin can record it for "Restore Recently Closed File".
+    let image: CGImage
     var onClose: (@MainActor (PinnedImageWindowController) -> Void)?
 
     /// `slot` offsets the window from the screen centre so successive pins cascade instead of stacking exactly.
@@ -20,6 +22,7 @@ final class PinnedImageWindowController: NSObject, NSWindowDelegate {
         actions: ResultActions,
         openEditor: @escaping @MainActor (CGImage) -> Void
     ) {
+        self.image = image
         super.init()
 
         let visible = NSScreen.underCursor?.visibleFrame ?? CGRect(x: 0, y: 0, width: 1440, height: 900)

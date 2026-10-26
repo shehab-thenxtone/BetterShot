@@ -50,7 +50,8 @@ final class PostCaptureFlow {
                     self?.panel.dismiss()
                     self?.openEditor?(image)
                 }
-            )
+            ),
+            onDiscard: { [weak self] in self?.actions.recordClosed(image) }
         )
     }
 }

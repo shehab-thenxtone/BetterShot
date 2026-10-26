@@ -16,7 +16,9 @@ final class EditorWindowController: NSObject, NSWindowDelegate {
     private let settings: () -> AppSettings
     private let captureForMerge: @MainActor (CaptureMode) async -> CGImage?
     private let onDone: @MainActor (CGImage) -> Void
+    private let onDiscard: @MainActor (CGImage) -> Void
     private var window: NSWindow?
+    private var finishedWithDone = false
 
     var onClose: (@MainActor (EditorWindowController) -> Void)?
 
@@ -28,13 +30,15 @@ final class EditorWindowController: NSObject, NSWindowDelegate {
         folderStore: any SaveFolderStoring,
         settings: @escaping () -> AppSettings,
         captureForMerge: @escaping @MainActor (CaptureMode) async -> CGImage?,
-        onDone: @escaping @MainActor (CGImage) -> Void
+        onDone: @escaping @MainActor (CGImage) -> Void,
+        onDiscard: @escaping @MainActor (CGImage) -> Void
     ) {
         model = EditorModel(image: image, pointScale: pointScale, stylesStore: stylesStore, ocr: ocr)
         self.folderStore = folderStore
         self.settings = settings
         self.captureForMerge = captureForMerge
         self.onDone = onDone
+        self.onDiscard = onDiscard
         super.init()
         window = makeWindow()
     }
@@ -78,6 +82,8 @@ final class EditorWindowController: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
+        // Closing without Done discards the edit; keep what was there so it can be restored.
+        if !finishedWithDone, let image = model.flattened() { onDiscard(image) }
         model.onChange = nil
         model.focusCanvas = nil
         onClose?(self)
@@ -92,6 +98,7 @@ final class EditorWindowController: NSObject, NSWindowDelegate {
             return
         }
         let handler = onDone
+        finishedWithDone = true
         window?.close()
         handler(image)
     }

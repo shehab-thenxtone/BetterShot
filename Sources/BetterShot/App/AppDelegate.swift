@@ -6,6 +6,7 @@ import BetterShotServices
 final class AppDelegate: NSObject, NSApplicationDelegate {
     // Strong references for the app's lifetime; nothing here is torn down before quit.
     private var settingsModel: SettingsModel?
+    private var desktopIcons: DesktopIcons?
     private var postCaptureFlow: PostCaptureFlow?
     private var textCaptureFlow: TextCaptureFlow?
     private var editorPresenter: EditorPresenter?
@@ -22,7 +23,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Composition root.
         let model = SettingsModel(store: UserDefaultsSettingsStore())
         let folderStore = UserDefaultsSaveFolderStore()
-        let actions = ResultActions(folderStore: folderStore, settings: { model.settings })
+        let recentlyClosed = RecentlyClosedStore()
+        let desktopIcons = DesktopIcons.system
+        let toast = ToastController()
+        let actions = ResultActions(folderStore: folderStore, settings: { model.settings }, recentlyClosed: recentlyClosed)
         let flow = PostCaptureFlow(actions: actions, settings: { model.settings })
         let coordinator = CaptureCoordinator(
             capturer: ScreenCaptureKitCapturer(),
@@ -30,8 +34,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             deliver: { flow.present($0) }
         )
         let ocr = VisionOCRProvider()
-        let textCapture = TextCaptureFlow(ocr: ocr, toast: ToastController())
+        let textCapture = TextCaptureFlow(ocr: ocr, toast: toast)
         coordinator.recognizeText = { await textCapture.run(on: $0) }
+
+        let countdown = CountdownController()
+        coordinator.countdown = { await countdown.run(seconds: $0) }
+        coordinator.selfTimerSeconds = { model.settings.selfTimerDelay.seconds }
 
         let editor = EditorPresenter(stylesStore: UserDefaultsToolStylesStore(), ocr: ocr, folderStore: folderStore, settings: { model.settings })
         let pins = PinManager(actions: actions)
@@ -42,22 +50,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         flow.pinImage = { resultBar.show(image: $0, startPinned: true) }
         pins.openEditor = { editor.open(image: $0) }
         editor.onDone = { resultBar.show(image: $0, startPinned: false) }
+        editor.onDiscard = { actions.recordClosed($0) }
         editor.captureForMerge = { mode in await coordinator.captureImage(mode)?.image }
 
         let preferences = PreferencesWindowController(model: model, folderStore: folderStore)
         let router = AppCommandRouter(
             captureCoordinator: coordinator,
-            showPreferences: { preferences.show() },
-            pinFromFile: {
-                if let image = ImageFiles.choose(message: "Choose an image to pin to the screen") {
-                    resultBar.show(image: image, startPinned: true)
+            actions: AppCommandRouter.Actions(
+                showPreferences: { preferences.show() },
+                pinFromFile: {
+                    if let image = ImageFiles.choose(message: "Choose an image to pin to the screen") {
+                        resultBar.show(image: image, startPinned: true)
+                    }
+                },
+                openFile: {
+                    if let loaded = ImageFiles.chooseWithScale(message: "Choose an image to open in the editor") {
+                        editor.open(image: loaded.image, pointScale: loaded.pointScale)
+                    }
+                },
+                restoreRecentlyClosed: {
+                    if let image = recentlyClosed.take() {
+                        flow.present(CaptureResult(image: image))
+                    } else {
+                        toast.show("Nothing to restore", symbol: "arrow.uturn.backward")
+                    }
+                },
+                toggleDesktopIcons: { desktopIcons.setHidden(!desktopIcons.areHidden) },
+                afterCapture: {
+                    // Hiding is temporary unless the user chose to keep icons hidden.
+                    if desktopIcons.areHidden, !model.settings.keepsDesktopIconsHidden { desktopIcons.setHidden(false) }
                 }
-            }
+            )
         )
-        let statusItem = StatusItemController(handler: router, hotkeys: model.settings.hotkeys)
+        let statusItem = StatusItemController(
+            handler: router,
+            hotkeys: model.settings.hotkeys,
+            state: { .init(desktopIconsHidden: desktopIcons.areHidden, canRestoreRecentlyClosed: recentlyClosed.hasItem) }
+        )
         let hotkeys = HotkeyController(handler: router)
 
         settingsModel = model
+        self.desktopIcons = desktopIcons
         postCaptureFlow = flow
         textCaptureFlow = textCapture
         editorPresenter = editor
@@ -72,6 +105,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         reportUnavailable(hotkeys.apply(model.settings.hotkeys))
         syncLaunchAtLoginWithSystem(model)
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        // Never leave the user's desktop bare unless they asked for the icons to stay hidden.
+        guard let desktopIcons, desktopIcons.areHidden, settingsModel?.settings.keepsDesktopIconsHidden == false else { return }
+        desktopIcons.setHidden(false)
     }
 
     // MARK: Reacting to settings

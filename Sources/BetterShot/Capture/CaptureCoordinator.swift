@@ -27,6 +27,10 @@ final class CaptureCoordinator {
     /// Handles "Capture Text (OCR)" results: set after construction, since the OCR flow is built separately.
     var recognizeText: (@MainActor (CGImage) async -> Void)?
 
+    /// Self-Timer hooks: the on-screen countdown (true = it finished) and how long it runs. Set after construction.
+    var countdown: (@MainActor (Int) async -> Bool)?
+    var selfTimerSeconds: @MainActor () -> Int = { SelfTimerDelay.five.seconds }
+
     /// A normal capture: select, capture, then hand the result to the post-capture flow.
     /// Capture Text instead sends the image to text recognition and never shows the preview popup.
     func start(_ mode: CaptureMode) async {
@@ -80,9 +84,14 @@ final class CaptureCoordinator {
             return request(for: await overlay.run(mode: .window))
         case .allInOne:
             return request(for: await overlay.run(mode: .allInOne))
+        case .selfTimer:
+            // Choose what to capture first, then count down, so there's time to open a menu inside the chosen region.
+            guard let request = request(for: await overlay.run(mode: .allInOne)) else { return nil }
+            guard await countdown?(selfTimerSeconds()) ?? true else { return nil }
+            return request
         case .previousArea:
             return await previousAreaRequest()
-        case .selfTimer, .scrolling, .recordScreen:
+        case .scrolling, .recordScreen:
             logger.notice("Not implemented yet: \(mode.rawValue, privacy: .public)")
             return nil
         }

@@ -13,6 +13,8 @@ final class EditorPresenter {
 
     /// Called with the flattened image when the user presses Done.
     var onDone: (@MainActor (CGImage) -> Void)?
+    /// Called with the edited image when an editor window is closed without pressing Done.
+    var onDiscard: (@MainActor (CGImage) -> Void)?
     /// Runs one capture for the Merge tool; nil if it was cancelled or failed.
     var captureForMerge: (@MainActor (CaptureMode) async -> CGImage?)?
 
@@ -33,7 +35,8 @@ final class EditorPresenter {
             folderStore: folderStore,
             settings: settings,
             captureForMerge: { [weak self] mode in await self?.captureForMerge?(mode) },
-            onDone: { [weak self] image in self?.onDone?(image) }
+            onDone: { [weak self] image in self?.onDone?(image) },
+            onDiscard: { [weak self] image in self?.onDiscard?(image) }
         )
         controller.onClose = { [weak self] closed in self?.controllers.removeAll { $0 === closed } }
         controllers.append(controller)

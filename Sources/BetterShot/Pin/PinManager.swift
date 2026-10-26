@@ -28,6 +28,7 @@ final class PinManager {
         )
         controller.onClose = { [weak self] closed in
             self?.controllers.removeAll { $0 === closed }
+            self?.actions.recordClosed(closed.image)
             onClose(closed)
         }
         controllers.append(controller)

@@ -78,6 +78,7 @@ final class ResultBarController {
     }
 
     func dismiss() {
+        if let model { actions.recordClosed(model.image) } // dismissed without being kept: restorable
         idleTask?.cancel()
         dismissTask?.cancel()
         idleTask = nil

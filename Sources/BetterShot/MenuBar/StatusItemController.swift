@@ -5,12 +5,20 @@ import BetterShotCore
 @MainActor
 final class StatusItemController: NSObject {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+    /// Live state the menu reflects each time it opens.
+    struct MenuState {
+        var desktopIconsHidden: Bool
+        var canRestoreRecentlyClosed: Bool
+    }
+
     private unowned let handler: any AppCommandHandler
     private var hotkeys: HotkeyBindings
+    private let state: @MainActor () -> MenuState
 
-    init(handler: any AppCommandHandler, hotkeys: HotkeyBindings) {
+    init(handler: any AppCommandHandler, hotkeys: HotkeyBindings, state: @escaping @MainActor () -> MenuState) {
         self.handler = handler
         self.hotkeys = hotkeys
+        self.state = state
         super.init()
         configureButton()
         statusItem.menu = buildMenu()
@@ -31,6 +39,8 @@ final class StatusItemController: NSObject {
 
     private func buildMenu() -> NSMenu {
         let menu = NSMenu()
+        menu.delegate = self
+        menu.autoenablesItems = false // `menuNeedsUpdate` decides which items are enabled
         for mode in CaptureMode.allCases {
             menu.addItem(item(for: .capture(mode)))
         }
@@ -68,6 +78,21 @@ final class StatusItemController: NSObject {
     @objc private func menuItemSelected(_ sender: NSMenuItem) {
         guard let box = sender.representedObject as? CommandBox else { return }
         handler.perform(box.command)
+    }
+}
+
+extension StatusItemController: NSMenuDelegate {
+    /// Hide Desktop Icons shows a checkmark while icons are hidden; Restore is disabled with nothing to restore.
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        let current = state()
+        for item in menu.items {
+            guard let box = item.representedObject as? CommandBox else { continue }
+            switch box.command {
+            case .toggleHideDesktopIcons: item.state = current.desktopIconsHidden ? .on : .off
+            case .restoreRecentlyClosed: item.isEnabled = current.canRestoreRecentlyClosed
+            default: break
+            }
+        }
     }
 }
 

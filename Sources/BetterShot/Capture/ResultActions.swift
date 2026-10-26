@@ -9,12 +9,19 @@ import OSLog
 final class ResultActions {
     private let folderStore: any SaveFolderStoring
     private let settings: () -> AppSettings
+    private let recentlyClosed: RecentlyClosedStore
     private let logger = Logger(subsystem: "com.bettershot.app", category: "result-actions")
 
     /// `settings` is read per action so Preferences changes apply immediately.
-    init(folderStore: any SaveFolderStoring, settings: @escaping () -> AppSettings) {
+    init(folderStore: any SaveFolderStoring, settings: @escaping () -> AppSettings, recentlyClosed: RecentlyClosedStore) {
         self.folderStore = folderStore
         self.settings = settings
+        self.recentlyClosed = recentlyClosed
+    }
+
+    /// Remembers an image the user closed without keeping, for "Restore Recently Closed File". Replaces the previous one.
+    func recordClosed(_ image: CGImage) {
+        recentlyClosed.save(image)
     }
 
     func copy(_ image: CGImage) {

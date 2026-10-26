@@ -26,33 +26,46 @@ protocol AppCommandHandler: AnyObject {
 final class AppCommandRouter: AppCommandHandler {
     private let logger = Logger(subsystem: "com.bettershot.app", category: "commands")
     private let captureCoordinator: CaptureCoordinator
-    private let showPreferences: @MainActor () -> Void
-    private let pinFromFile: @MainActor () -> Void
+    private let actions: Actions
 
-    init(
-        captureCoordinator: CaptureCoordinator,
-        showPreferences: @escaping @MainActor () -> Void,
-        pinFromFile: @escaping @MainActor () -> Void
-    ) {
+    /// What the router can't do itself; the composition root supplies each one.
+    struct Actions {
+        let showPreferences: @MainActor () -> Void
+        let pinFromFile: @MainActor () -> Void
+        let openFile: @MainActor () -> Void
+        let restoreRecentlyClosed: @MainActor () -> Void
+        let toggleDesktopIcons: @MainActor () -> Void
+        /// Runs after every capture attempt finishes, whether or not it produced an image.
+        let afterCapture: @MainActor () -> Void
+    }
+
+    init(captureCoordinator: CaptureCoordinator, actions: Actions) {
         self.captureCoordinator = captureCoordinator
-        self.showPreferences = showPreferences
-        self.pinFromFile = pinFromFile
+        self.actions = actions
     }
 
     func perform(_ command: AppCommand) {
         switch command {
         case .capture(let mode):
-            Task { await captureCoordinator.start(mode) }
+            Task {
+                await captureCoordinator.start(mode)
+                actions.afterCapture()
+            }
         case .preferences:
-            showPreferences()
+            actions.showPreferences()
         case .pinToScreen:
-            pinFromFile()
+            actions.pinFromFile()
+        case .openFile:
+            actions.openFile()
+        case .restoreRecentlyClosed:
+            actions.restoreRecentlyClosed()
+        case .toggleHideDesktopIcons:
+            actions.toggleDesktopIcons()
         case .about:
             NSApp.orderFrontStandardAboutPanel(nil)
         case .quit:
             NSApp.terminate(nil)
-        case .toggleHideDesktopIcons, .openFile,
-             .restoreRecentlyClosed, .checkForUpdates:
+        case .checkForUpdates:
             logger.notice("Not implemented yet: \(String(describing: command), privacy: .public)")
         }
     }
