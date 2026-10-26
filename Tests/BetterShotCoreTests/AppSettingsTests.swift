@@ -32,6 +32,21 @@ struct AppSettingsTests {
         #expect(try JSONDecoder().decode(AppSettings.self, from: json).popupAutoDismissSeconds == 30)
     }
 
+    @Test func hotkeyAndLoginDefaults() {
+        let settings = AppSettings()
+        #expect(settings.hotkeys == .defaults)
+        #expect(settings.launchesAtLogin == false)
+    }
+
+    @Test func hotkeysAndLaunchAtLoginRoundTripThroughJSON() throws {
+        let original = AppSettings(
+            hotkeys: HotkeyBindings.defaults.setting(KeyShortcut(key: "9", modifiers: [.command, .option]), for: .window),
+            launchesAtLogin: true
+        )
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(original))
+        #expect(decoded == original)
+    }
+
     @Test func missingKeysFallBackToDefaults() throws {
         let decoded = try JSONDecoder().decode(AppSettings.self, from: Data("{}".utf8))
         #expect(decoded == AppSettings())

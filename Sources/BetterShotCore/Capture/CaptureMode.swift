@@ -17,6 +17,21 @@ public struct KeyShortcut: Equatable, Hashable, Codable, Sendable {
         self.key = key
         self.modifiers = modifiers
     }
+
+    /// Menu-style text such as "⇧⌘4" (macOS order: ⌃ ⌥ ⇧ ⌘, then the key).
+    public var displayString: String {
+        var text = ""
+        if modifiers.contains(.control) { text += "⌃" }
+        if modifiers.contains(.option) { text += "⌥" }
+        if modifiers.contains(.shift) { text += "⇧" }
+        if modifiers.contains(.command) { text += "⌘" }
+        return text + key.uppercased()
+    }
+
+    /// A system-wide hotkey must include ⌘, ⌥ or ⌃, otherwise it would hijack normal typing.
+    public var isUsableAsGlobalHotkey: Bool {
+        !modifiers.isDisjoint(with: [.command, .option, .control])
+    }
 }
 
 /// Every capture entry point in the menu (requirements §3.1, items 1–9), in menu order.

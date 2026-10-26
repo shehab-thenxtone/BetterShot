@@ -19,13 +19,17 @@ public struct AppSettings: Equatable, Codable, Sendable {
     public let defaultStorageTarget: StorageTarget
     public let gifExportMode: GIFExportMode
     public let opensEditorAfterCapture: Bool
+    public let hotkeys: HotkeyBindings
+    public let launchesAtLogin: Bool
 
     public init(
         filenameTemplate: FilenameTemplate = .default,
         popupAutoDismissSeconds: Double = 6,
         defaultStorageTarget: StorageTarget = .local,
         gifExportMode: GIFExportMode = .auto,
-        opensEditorAfterCapture: Bool = false
+        opensEditorAfterCapture: Bool = false,
+        hotkeys: HotkeyBindings = .defaults,
+        launchesAtLogin: Bool = false
     ) {
         self.filenameTemplate = filenameTemplate
         self.popupAutoDismissSeconds = min(
@@ -35,6 +39,8 @@ public struct AppSettings: Equatable, Codable, Sendable {
         self.defaultStorageTarget = defaultStorageTarget
         self.gifExportMode = gifExportMode
         self.opensEditorAfterCapture = opensEditorAfterCapture
+        self.hotkeys = hotkeys
+        self.launchesAtLogin = launchesAtLogin
     }
 
     // Decoding tolerates missing keys (older saved settings) and re-applies clamping via `init`.
@@ -46,7 +52,9 @@ public struct AppSettings: Equatable, Codable, Sendable {
             popupAutoDismissSeconds: try container.decodeIfPresent(Double.self, forKey: .popupAutoDismissSeconds) ?? defaults.popupAutoDismissSeconds,
             defaultStorageTarget: try container.decodeIfPresent(StorageTarget.self, forKey: .defaultStorageTarget) ?? defaults.defaultStorageTarget,
             gifExportMode: try container.decodeIfPresent(GIFExportMode.self, forKey: .gifExportMode) ?? defaults.gifExportMode,
-            opensEditorAfterCapture: try container.decodeIfPresent(Bool.self, forKey: .opensEditorAfterCapture) ?? defaults.opensEditorAfterCapture
+            opensEditorAfterCapture: try container.decodeIfPresent(Bool.self, forKey: .opensEditorAfterCapture) ?? defaults.opensEditorAfterCapture,
+            hotkeys: try container.decodeIfPresent(HotkeyBindings.self, forKey: .hotkeys) ?? defaults.hotkeys,
+            launchesAtLogin: try container.decodeIfPresent(Bool.self, forKey: .launchesAtLogin) ?? defaults.launchesAtLogin
         )
     }
 }
