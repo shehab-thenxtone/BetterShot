@@ -10,7 +10,7 @@ public enum GIFExportMode: Equatable, Codable, Sendable {
     case manual(GIFExportSettings)
 }
 
-/// All user preferences as one value. Hotkeys and per-destination account state are added in later phases.
+/// All user preferences as one value. Per-destination account state is added in a later phase.
 public struct AppSettings: Equatable, Codable, Sendable {
     public static let popupAutoDismissRange: ClosedRange<Double> = 2...30
 
@@ -21,6 +21,9 @@ public struct AppSettings: Equatable, Codable, Sendable {
     public let opensEditorAfterCapture: Bool
     public let hotkeys: HotkeyBindings
     public let launchesAtLogin: Bool
+    public let selfTimerDelay: SelfTimerDelay
+    /// When false, Hide Desktop Icons is temporary: icons come back after the next capture (requirements §3.1 item 10).
+    public let keepsDesktopIconsHidden: Bool
 
     public init(
         filenameTemplate: FilenameTemplate = .default,
@@ -29,7 +32,9 @@ public struct AppSettings: Equatable, Codable, Sendable {
         gifExportMode: GIFExportMode = .auto,
         opensEditorAfterCapture: Bool = false,
         hotkeys: HotkeyBindings = .defaults,
-        launchesAtLogin: Bool = false
+        launchesAtLogin: Bool = false,
+        selfTimerDelay: SelfTimerDelay = .five,
+        keepsDesktopIconsHidden: Bool = false
     ) {
         self.filenameTemplate = filenameTemplate
         self.popupAutoDismissSeconds = min(
@@ -41,6 +46,8 @@ public struct AppSettings: Equatable, Codable, Sendable {
         self.opensEditorAfterCapture = opensEditorAfterCapture
         self.hotkeys = hotkeys
         self.launchesAtLogin = launchesAtLogin
+        self.selfTimerDelay = selfTimerDelay
+        self.keepsDesktopIconsHidden = keepsDesktopIconsHidden
     }
 
     /// Copy with the given fields replaced. Goes through `init`, so clamping still applies.
@@ -51,7 +58,9 @@ public struct AppSettings: Equatable, Codable, Sendable {
         gifExportMode: GIFExportMode? = nil,
         opensEditorAfterCapture: Bool? = nil,
         hotkeys: HotkeyBindings? = nil,
-        launchesAtLogin: Bool? = nil
+        launchesAtLogin: Bool? = nil,
+        selfTimerDelay: SelfTimerDelay? = nil,
+        keepsDesktopIconsHidden: Bool? = nil
     ) -> AppSettings {
         AppSettings(
             filenameTemplate: filenameTemplate ?? self.filenameTemplate,
@@ -60,11 +69,14 @@ public struct AppSettings: Equatable, Codable, Sendable {
             gifExportMode: gifExportMode ?? self.gifExportMode,
             opensEditorAfterCapture: opensEditorAfterCapture ?? self.opensEditorAfterCapture,
             hotkeys: hotkeys ?? self.hotkeys,
-            launchesAtLogin: launchesAtLogin ?? self.launchesAtLogin
+            launchesAtLogin: launchesAtLogin ?? self.launchesAtLogin,
+            selfTimerDelay: selfTimerDelay ?? self.selfTimerDelay,
+            keepsDesktopIconsHidden: keepsDesktopIconsHidden ?? self.keepsDesktopIconsHidden
         )
     }
 
     // Decoding tolerates missing keys (older saved settings) and re-applies clamping via `init`.
+    // An unrecognised self-timer value falls back to the default instead of discarding every other setting.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let defaults = AppSettings()
@@ -75,7 +87,9 @@ public struct AppSettings: Equatable, Codable, Sendable {
             gifExportMode: try container.decodeIfPresent(GIFExportMode.self, forKey: .gifExportMode) ?? defaults.gifExportMode,
             opensEditorAfterCapture: try container.decodeIfPresent(Bool.self, forKey: .opensEditorAfterCapture) ?? defaults.opensEditorAfterCapture,
             hotkeys: try container.decodeIfPresent(HotkeyBindings.self, forKey: .hotkeys) ?? defaults.hotkeys,
-            launchesAtLogin: try container.decodeIfPresent(Bool.self, forKey: .launchesAtLogin) ?? defaults.launchesAtLogin
+            launchesAtLogin: try container.decodeIfPresent(Bool.self, forKey: .launchesAtLogin) ?? defaults.launchesAtLogin,
+            selfTimerDelay: (try? container.decodeIfPresent(SelfTimerDelay.self, forKey: .selfTimerDelay)) ?? defaults.selfTimerDelay,
+            keepsDesktopIconsHidden: try container.decodeIfPresent(Bool.self, forKey: .keepsDesktopIconsHidden) ?? defaults.keepsDesktopIconsHidden
         )
     }
 }

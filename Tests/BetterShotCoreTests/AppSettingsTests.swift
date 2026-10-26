@@ -47,6 +47,36 @@ struct AppSettingsTests {
         #expect(decoded == original)
     }
 
+    @Test func selfTimerAndDesktopIconDefaults() {
+        let settings = AppSettings()
+        #expect(settings.selfTimerDelay == .five)
+        #expect(settings.selfTimerDelay.seconds == 5)
+        #expect(settings.keepsDesktopIconsHidden == false)
+    }
+
+    @Test func selfTimerOffersThreeFiveAndTenSeconds() {
+        #expect(SelfTimerDelay.allCases.map(\.seconds) == [3, 5, 10])
+    }
+
+    @Test func selfTimerAndDesktopIconSettingsRoundTripThroughJSON() throws {
+        let original = AppSettings(selfTimerDelay: .ten, keepsDesktopIconsHidden: true)
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(original))
+        #expect(decoded == original)
+    }
+
+    @Test func anInvalidSelfTimerValueFallsBackWithoutLosingOtherSettings() throws {
+        let json = #"{"selfTimerDelay": 7, "opensEditorAfterCapture": true}"#
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: Data(json.utf8))
+        #expect(decoded.selfTimerDelay == .five)
+        #expect(decoded.opensEditorAfterCapture)
+    }
+
+    @Test func updatingChangesSelfTimerAndDesktopIconSettings() {
+        let updated = AppSettings().updating(selfTimerDelay: .three, keepsDesktopIconsHidden: true)
+        #expect(updated.selfTimerDelay == .three)
+        #expect(updated.keepsDesktopIconsHidden)
+    }
+
     @Test func updatingChangesOnlyTheGivenFields() {
         let original = AppSettings(defaultStorageTarget: .oneDrive, opensEditorAfterCapture: true)
         let updated = original.updating(popupAutoDismissSeconds: 12, launchesAtLogin: true)
