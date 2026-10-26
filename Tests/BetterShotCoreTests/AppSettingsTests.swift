@@ -47,6 +47,20 @@ struct AppSettingsTests {
         #expect(decoded == original)
     }
 
+    @Test func updatingChangesOnlyTheGivenFields() {
+        let original = AppSettings(defaultStorageTarget: .oneDrive, opensEditorAfterCapture: true)
+        let updated = original.updating(popupAutoDismissSeconds: 12, launchesAtLogin: true)
+        #expect(updated.popupAutoDismissSeconds == 12)
+        #expect(updated.launchesAtLogin)
+        #expect(updated.defaultStorageTarget == .oneDrive)
+        #expect(updated.opensEditorAfterCapture)
+        #expect(original.launchesAtLogin == false)
+    }
+
+    @Test func updatingStillClampsValues() {
+        #expect(AppSettings().updating(popupAutoDismissSeconds: 1000).popupAutoDismissSeconds == 30)
+    }
+
     @Test func missingKeysFallBackToDefaults() throws {
         let decoded = try JSONDecoder().decode(AppSettings.self, from: Data("{}".utf8))
         #expect(decoded == AppSettings())

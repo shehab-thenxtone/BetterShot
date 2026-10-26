@@ -15,6 +15,19 @@ struct KeyCodeMapTests {
         #expect(KeyCodeMap.keyCode(for: "z") == 6)
     }
 
+    @Test func reverseLookupReturnsTheUnshiftedKey() {
+        #expect(KeyCodeMap.key(forKeyCode: 21) == "4")
+        #expect(KeyCodeMap.key(forKeyCode: 0) == "a")
+        #expect(KeyCodeMap.key(forKeyCode: 53) == nil) // Escape
+    }
+
+    @Test func everyKnownKeyRoundTrips() {
+        for key in ["a", "z", "0", "9", "[", "`", "/"] {
+            let code = KeyCodeMap.keyCode(for: key)!
+            #expect(KeyCodeMap.key(forKeyCode: code) == key)
+        }
+    }
+
     @Test func rejectsKeysItDoesNotKnow() {
         #expect(KeyCodeMap.keyCode(for: "é") == nil)
         #expect(KeyCodeMap.keyCode(for: "") == nil)

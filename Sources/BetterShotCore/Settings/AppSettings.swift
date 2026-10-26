@@ -43,6 +43,27 @@ public struct AppSettings: Equatable, Codable, Sendable {
         self.launchesAtLogin = launchesAtLogin
     }
 
+    /// Copy with the given fields replaced. Goes through `init`, so clamping still applies.
+    public func updating(
+        filenameTemplate: FilenameTemplate? = nil,
+        popupAutoDismissSeconds: Double? = nil,
+        defaultStorageTarget: StorageTarget? = nil,
+        gifExportMode: GIFExportMode? = nil,
+        opensEditorAfterCapture: Bool? = nil,
+        hotkeys: HotkeyBindings? = nil,
+        launchesAtLogin: Bool? = nil
+    ) -> AppSettings {
+        AppSettings(
+            filenameTemplate: filenameTemplate ?? self.filenameTemplate,
+            popupAutoDismissSeconds: popupAutoDismissSeconds ?? self.popupAutoDismissSeconds,
+            defaultStorageTarget: defaultStorageTarget ?? self.defaultStorageTarget,
+            gifExportMode: gifExportMode ?? self.gifExportMode,
+            opensEditorAfterCapture: opensEditorAfterCapture ?? self.opensEditorAfterCapture,
+            hotkeys: hotkeys ?? self.hotkeys,
+            launchesAtLogin: launchesAtLogin ?? self.launchesAtLogin
+        )
+    }
+
     // Decoding tolerates missing keys (older saved settings) and re-applies clamping via `init`.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)

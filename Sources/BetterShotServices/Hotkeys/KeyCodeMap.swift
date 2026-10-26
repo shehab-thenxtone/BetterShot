@@ -13,8 +13,15 @@ public enum KeyCodeMap {
         "n": 45, "m": 46, ".": 47, "`": 50,
     ]
 
+    private static let keysByCode: [UInt32: String] = Dictionary(uniqueKeysWithValues: codes.map { ($1, $0) })
+
     public static func keyCode(for key: String) -> UInt32? {
         codes[key.lowercased()]
+    }
+
+    /// The unshifted key for a physical key code, so ⇧4 records as "4" rather than "$".
+    public static func key(forKeyCode keyCode: UInt32) -> String? {
+        keysByCode[keyCode]
     }
 
     /// Carbon modifier mask (`cmdKey`, `shiftKey`, `optionKey`, `controlKey`).
