@@ -48,7 +48,8 @@ public enum AnnotationRenderer {
         }
     }
 
-    private static func makeContext(width: Int, height: Int) -> CGContext? {
+    /// An sRGB RGBA bitmap context, shared with `ImageOperations`.
+    static func makeContext(width: Int, height: Int) -> CGContext? {
         CGContext(
             data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
             space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),

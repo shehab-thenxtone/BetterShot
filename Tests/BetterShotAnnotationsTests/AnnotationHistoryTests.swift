@@ -49,6 +49,13 @@ struct AnnotationHistoryTests {
         #expect(history.redone() == history)
     }
 
+    @Test func historyWorksForAnyEquatableState() {
+        let history = UndoHistory(initial: 1).committing(2).committing(3)
+        #expect(history.present == 3)
+        #expect(history.undone().undone().present == 1)
+        #expect(history.undone().redone().present == 3)
+    }
+
     @Test func undoDepthIsCapped() {
         var history = AnnotationHistory(initial: empty)
         var document = empty
