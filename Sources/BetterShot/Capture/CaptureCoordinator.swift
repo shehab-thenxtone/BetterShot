@@ -24,10 +24,18 @@ final class CaptureCoordinator {
         self.deliver = deliver
     }
 
+    /// Handles "Capture Text (OCR)" results: set after construction, since the OCR flow is built separately.
+    var recognizeText: (@MainActor (CGImage) async -> Void)?
+
     /// A normal capture: select, capture, then hand the result to the post-capture flow.
+    /// Capture Text instead sends the image to text recognition and never shows the preview popup.
     func start(_ mode: CaptureMode) async {
         guard let result = await capture(mode) else { return }
-        deliver(result)
+        if mode == .ocr {
+            await recognizeText?(result.image)
+        } else {
+            deliver(result)
+        }
     }
 
     /// Captures without delivering, for callers that use the image themselves (the editor's Merge tool).
@@ -66,7 +74,7 @@ final class CaptureCoordinator {
         switch mode {
         case .fullscreen:
             return NSScreen.underCursor.map(displayRequest(for:))
-        case .area:
+        case .area, .ocr: // Capture Text selects a region exactly like Capture Area
             return request(for: await overlay.run(mode: .area))
         case .window:
             return request(for: await overlay.run(mode: .window))
@@ -74,7 +82,7 @@ final class CaptureCoordinator {
             return request(for: await overlay.run(mode: .allInOne))
         case .previousArea:
             return await previousAreaRequest()
-        case .selfTimer, .scrolling, .ocr, .recordScreen:
+        case .selfTimer, .scrolling, .recordScreen:
             logger.notice("Not implemented yet: \(mode.rawValue, privacy: .public)")
             return nil
         }

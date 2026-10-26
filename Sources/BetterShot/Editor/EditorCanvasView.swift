@@ -53,6 +53,8 @@ final class EditorCanvasView: NSView, NSTextFieldDelegate, NSMenuItemValidation 
     private var draftDocument: AnnotationDocument?
     private var textEditor: TextEditSession?
     private var shiftDown = false
+    /// A text-highlighter drag waiting for OCR to finish; drawn as a plain highlight so the drag feels immediate.
+    private var pendingHighlight: CGRect?
 
     init(model: EditorModel) {
         self.model = model
@@ -122,7 +124,10 @@ final class EditorCanvasView: NSView, NSTextFieldDelegate, NSMenuItemValidation 
 
     /// The model's document plus whatever is being dragged or drawn right now.
     private func renderedDocument() -> AnnotationDocument {
-        let base = draftDocument ?? model.document
+        var base = draftDocument ?? model.document
+        if let pendingHighlight {
+            base = base.adding(.textHighlight(pendingHighlight), style: model.toolStyles.style(for: .textHighlighter))
+        }
         let style = model.toolStyles.style(for: model.tool)
         switch interaction {
         case .creating(let start, let current):
@@ -273,7 +278,11 @@ final class EditorCanvasView: NSView, NSTextFieldDelegate, NSMenuItemValidation 
         switch interaction {
         case .creating(let start, let current):
             if let kind = ShapeGesture.kind(for: model.tool, from: start, to: current, constrained: shiftDown) {
-                model.addAnnotation(kind)
+                if case .textHighlight(let rect) = kind {
+                    addSnappedHighlight(over: rect)
+                } else {
+                    model.addAnnotation(kind)
+                }
             }
         case .freehand(let points):
             model.addAnnotation(model.tool == .pen ? .pen(points: points) : .marker(points: points))
@@ -288,6 +297,16 @@ final class EditorCanvasView: NSView, NSTextFieldDelegate, NSMenuItemValidation 
         shiftDown = event.modifierFlags.contains(.shift)
         if case .none = interaction { return }
         needsDisplay = true
+    }
+
+    /// Snaps the highlight to the words under the drag once OCR has the text (see `EditorModel.addTextHighlight`).
+    private func addSnappedHighlight(over rect: CGRect) {
+        pendingHighlight = rect
+        Task {
+            await model.addTextHighlight(selection: rect)
+            pendingHighlight = nil
+            needsDisplay = true
+        }
     }
 
     private func clamped(_ point: CGPoint) -> CGPoint {

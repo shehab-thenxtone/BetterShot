@@ -6,6 +6,7 @@ import BetterShotServices
 @MainActor
 final class EditorPresenter {
     private let stylesStore: UserDefaultsToolStylesStore
+    private let ocr: any OCRProvider
     private let folderStore: any SaveFolderStoring
     private let settings: () -> AppSettings
     private var controllers: [EditorWindowController] = []
@@ -15,8 +16,9 @@ final class EditorPresenter {
     /// Runs one capture for the Merge tool; nil if it was cancelled or failed.
     var captureForMerge: (@MainActor (CaptureMode) async -> CGImage?)?
 
-    init(stylesStore: UserDefaultsToolStylesStore, folderStore: any SaveFolderStoring, settings: @escaping () -> AppSettings) {
+    init(stylesStore: UserDefaultsToolStylesStore, ocr: any OCRProvider, folderStore: any SaveFolderStoring, settings: @escaping () -> AppSettings) {
         self.stylesStore = stylesStore
+        self.ocr = ocr
         self.folderStore = folderStore
         self.settings = settings
     }
@@ -27,6 +29,7 @@ final class EditorPresenter {
             image: image,
             pointScale: pointScale ?? NSScreen.underCursor?.backingScaleFactor ?? 2,
             stylesStore: stylesStore,
+            ocr: ocr,
             folderStore: folderStore,
             settings: settings,
             captureForMerge: { [weak self] mode in await self?.captureForMerge?(mode) },

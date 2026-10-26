@@ -24,12 +24,13 @@ final class EditorWindowController: NSObject, NSWindowDelegate {
         image: CGImage,
         pointScale: CGFloat,
         stylesStore: UserDefaultsToolStylesStore,
+        ocr: any OCRProvider,
         folderStore: any SaveFolderStoring,
         settings: @escaping () -> AppSettings,
         captureForMerge: @escaping @MainActor (CaptureMode) async -> CGImage?,
         onDone: @escaping @MainActor (CGImage) -> Void
     ) {
-        model = EditorModel(image: image, pointScale: pointScale, stylesStore: stylesStore)
+        model = EditorModel(image: image, pointScale: pointScale, stylesStore: stylesStore, ocr: ocr)
         self.folderStore = folderStore
         self.settings = settings
         self.captureForMerge = captureForMerge

@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // Strong references for the app's lifetime; nothing here is torn down before quit.
     private var settingsModel: SettingsModel?
     private var postCaptureFlow: PostCaptureFlow?
+    private var textCaptureFlow: TextCaptureFlow?
     private var editorPresenter: EditorPresenter?
     private var pinManager: PinManager?
     private var resultBar: ResultBarController?
@@ -28,7 +29,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             previousAreaStore: UserDefaultsPreviousAreaStore(),
             deliver: { flow.present($0) }
         )
-        let editor = EditorPresenter(stylesStore: UserDefaultsToolStylesStore(), folderStore: folderStore, settings: { model.settings })
+        let ocr = VisionOCRProvider()
+        let textCapture = TextCaptureFlow(ocr: ocr, toast: ToastController())
+        coordinator.recognizeText = { await textCapture.run(on: $0) }
+
+        let editor = EditorPresenter(stylesStore: UserDefaultsToolStylesStore(), ocr: ocr, folderStore: folderStore, settings: { model.settings })
         let pins = PinManager(actions: actions)
         let resultBar = ResultBarController(pins: pins, actions: actions)
 
@@ -54,6 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         settingsModel = model
         postCaptureFlow = flow
+        textCaptureFlow = textCapture
         editorPresenter = editor
         pinManager = pins
         self.resultBar = resultBar

@@ -1,5 +1,6 @@
 import AppKit
 import BetterShotAnnotations
+import BetterShotCore
 import BetterShotServices
 import Observation
 
@@ -45,15 +46,19 @@ final class EditorModel {
     private(set) var crop: CropSession?
 
     @ObservationIgnored private let stylesStore: UserDefaultsToolStylesStore
+    @ObservationIgnored private let ocr: any OCRProvider
+    /// Recognition results per base image. The image is kept alongside so its identity can't be reused.
+    @ObservationIgnored private var recognitions: [ObjectIdentifier: (image: BaseImage, task: Task<[RecognizedLine], Never>)] = [:]
     /// The AppKit canvas isn't observation-aware; it redraws through this.
     @ObservationIgnored var onChange: (() -> Void)?
     /// Lets toolbar actions hand keyboard focus back to the canvas so tool shortcuts keep working.
     @ObservationIgnored var focusCanvas: (() -> Void)?
 
-    init(image: CGImage, pointScale: CGFloat, stylesStore: UserDefaultsToolStylesStore) {
+    init(image: CGImage, pointScale: CGFloat, stylesStore: UserDefaultsToolStylesStore, ocr: any OCRProvider) {
         history = UndoHistory(initial: EditorState(image: image, pointScale: pointScale))
         toolStyles = stylesStore.load()
         self.stylesStore = stylesStore
+        self.ocr = ocr
     }
 
     // MARK: Reading
@@ -90,6 +95,7 @@ final class EditorModel {
         crop = nil
         tool = newTool
         if newTool != .select { selectedID = nil }
+        if newTool == .textHighlighter { prepareTextRecognition() } // so the first highlight snaps instantly
         changed()
         focusCanvas?()
     }
@@ -184,6 +190,37 @@ final class EditorModel {
         crop = nil
         changed()
         focusCanvas?()
+    }
+
+    // MARK: Text highlighter (OCR snapping)
+
+    /// Starts recognizing the current image in the background.
+    func prepareTextRecognition() {
+        _ = recognitionTask(for: state.baseImage)
+    }
+
+    /// Adds a highlight for a drag over `selection` (document points): one even band per covered line of text
+    /// when text is found there, otherwise the plain rectangle. One undo step either way.
+    func addTextHighlight(selection: CGRect) async {
+        let base = state.baseImage
+        let lines = await recognitionTask(for: base).value
+        guard state.baseImage == base else { return } // cropped, merged or undone while recognizing
+
+        let snapped = TextHighlightSnapper.snap(selection: selection, lines: lines.map { $0.scaled(by: 1 / pointScale) })
+        let rects = snapped.isEmpty ? [selection] : snapped
+        commit(document.adding(contentsOf: rects.map { .textHighlight($0) }, style: toolStyles.style(for: .textHighlighter)))
+    }
+
+    private func recognitionTask(for base: BaseImage) -> Task<[RecognizedLine], Never> {
+        let key = ObjectIdentifier(base)
+        if let existing = recognitions[key] { return existing.task }
+
+        if recognitions.count >= 4 { recognitions.removeAll() } // old images (before crop/merge) aren't coming back often
+        let provider = ocr
+        let image = base.cgImage
+        let task = Task { (try? await provider.recognize(in: image, languages: [.english])) ?? [] }
+        recognitions[key] = (base, task)
+        return task
     }
 
     // MARK: Merge
