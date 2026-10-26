@@ -27,10 +27,16 @@ final class AppCommandRouter: AppCommandHandler {
     private let logger = Logger(subsystem: "com.bettershot.app", category: "commands")
     private let captureCoordinator: CaptureCoordinator
     private let showPreferences: @MainActor () -> Void
+    private let pinFromFile: @MainActor () -> Void
 
-    init(captureCoordinator: CaptureCoordinator, showPreferences: @escaping @MainActor () -> Void) {
+    init(
+        captureCoordinator: CaptureCoordinator,
+        showPreferences: @escaping @MainActor () -> Void,
+        pinFromFile: @escaping @MainActor () -> Void
+    ) {
         self.captureCoordinator = captureCoordinator
         self.showPreferences = showPreferences
+        self.pinFromFile = pinFromFile
     }
 
     func perform(_ command: AppCommand) {
@@ -39,11 +45,13 @@ final class AppCommandRouter: AppCommandHandler {
             Task { await captureCoordinator.start(mode) }
         case .preferences:
             showPreferences()
+        case .pinToScreen:
+            pinFromFile()
         case .about:
             NSApp.orderFrontStandardAboutPanel(nil)
         case .quit:
             NSApp.terminate(nil)
-        case .toggleHideDesktopIcons, .openFile, .pinToScreen,
+        case .toggleHideDesktopIcons, .openFile,
              .restoreRecentlyClosed, .checkForUpdates:
             logger.notice("Not implemented yet: \(String(describing: command), privacy: .public)")
         }

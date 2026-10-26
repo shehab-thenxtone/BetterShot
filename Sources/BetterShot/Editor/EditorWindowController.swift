@@ -120,19 +120,7 @@ final class EditorWindowController: NSObject, NSWindowDelegate {
     // MARK: Merge
 
     private func importImage() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.image]
-        panel.allowsMultipleSelection = false
-        panel.message = "Choose an image to add to the canvas"
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-
-        guard
-            let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-            let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
-        else {
-            CaptureAlerts.presentInfo(title: "Couldn't open image", message: "\(url.lastPathComponent) isn't a readable image.", style: .warning)
-            return
-        }
+        guard let image = ImageFiles.choose(message: "Choose an image to add to the canvas") else { return }
         model.merge(image)
     }
 

@@ -217,13 +217,3 @@ private extension AnnotationColor {
         self.init(red: converted.redComponent, green: converted.greenComponent, blue: converted.blueComponent, alpha: converted.alphaComponent)
     }
 }
-
-/// Lets the toolbar's empty space drag the window, since the title bar is hidden behind it.
-private struct WindowDragArea: NSViewRepresentable {
-    private final class DragView: NSView {
-        override var mouseDownCanMoveWindow: Bool { true }
-    }
-
-    func makeNSView(context: Context) -> NSView { DragView() }
-    func updateNSView(_ view: NSView, context: Context) {}
-}

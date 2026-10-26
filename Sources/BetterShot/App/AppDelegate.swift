@@ -8,6 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsModel: SettingsModel?
     private var postCaptureFlow: PostCaptureFlow?
     private var editorPresenter: EditorPresenter?
+    private var pinManager: PinManager?
+    private var resultBar: ResultBarController?
     private var preferences: PreferencesWindowController?
     private var router: AppCommandRouter?
     private var hotkeyController: HotkeyController?
@@ -19,25 +21,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Composition root.
         let model = SettingsModel(store: UserDefaultsSettingsStore())
         let folderStore = UserDefaultsSaveFolderStore()
-        let flow = PostCaptureFlow(folderStore: folderStore, settings: { model.settings })
+        let actions = ResultActions(folderStore: folderStore, settings: { model.settings })
+        let flow = PostCaptureFlow(actions: actions, settings: { model.settings })
         let coordinator = CaptureCoordinator(
             capturer: ScreenCaptureKitCapturer(),
             previousAreaStore: UserDefaultsPreviousAreaStore(),
             deliver: { flow.present($0) }
         )
         let editor = EditorPresenter(stylesStore: UserDefaultsToolStylesStore(), folderStore: folderStore, settings: { model.settings })
+        let pins = PinManager(actions: actions)
+        let resultBar = ResultBarController(pins: pins, actions: actions)
+
+        // Wiring between surfaces: capture → popup → (editor | pin) → result bar → (pin | editor).
         flow.openEditor = { editor.open(image: $0) }
-        editor.onDone = { flow.present(CaptureResult(image: $0), opensEditorIfConfigured: false) }
+        flow.pinImage = { resultBar.show(image: $0, startPinned: true) }
+        pins.openEditor = { editor.open(image: $0) }
+        editor.onDone = { resultBar.show(image: $0, startPinned: false) }
         editor.captureForMerge = { mode in await coordinator.captureImage(mode)?.image }
 
         let preferences = PreferencesWindowController(model: model, folderStore: folderStore)
-        let router = AppCommandRouter(captureCoordinator: coordinator, showPreferences: { preferences.show() })
+        let router = AppCommandRouter(
+            captureCoordinator: coordinator,
+            showPreferences: { preferences.show() },
+            pinFromFile: {
+                if let image = ImageFiles.choose(message: "Choose an image to pin to the screen") {
+                    resultBar.show(image: image, startPinned: true)
+                }
+            }
+        )
         let statusItem = StatusItemController(handler: router, hotkeys: model.settings.hotkeys)
         let hotkeys = HotkeyController(handler: router)
 
         settingsModel = model
         postCaptureFlow = flow
         editorPresenter = editor
+        pinManager = pins
+        self.resultBar = resultBar
         self.preferences = preferences
         self.router = router
         statusItemController = statusItem
