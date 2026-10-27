@@ -12,6 +12,7 @@ final class CaptureCoordinator {
     private let deliver: @MainActor (CaptureResult) -> Void
     private let overlay = SelectionOverlayController()
     private let logger = Logger(subsystem: "com.bettershot.app", category: "capture")
+    private var captureBegan: ContinuousClock.Instant?
     private var isBusy = false
 
     init(
@@ -39,6 +40,23 @@ final class CaptureCoordinator {
             await recognizeText?(result.image)
         } else {
             deliver(result)
+            logLatency(for: mode)
+        }
+    }
+
+    /// Requirements §4: capture-to-preview should stay under about 200 ms. Measured from the moment the capture
+    /// request is issued (after any selection) to the preview being handed over.
+    private static let latencyBudget = Duration.milliseconds(200)
+
+    private func logLatency(for mode: CaptureMode) {
+        guard let began = captureBegan else { return }
+        captureBegan = nil
+        let elapsed = ContinuousClock.now - began
+        let milliseconds = Int((Double(elapsed.components.seconds) * 1_000 + Double(elapsed.components.attoseconds) / 1e15).rounded())
+        if elapsed > Self.latencyBudget {
+            logger.warning("Capture to preview took \(milliseconds, privacy: .public) ms (budget 200 ms), mode \(String(describing: mode), privacy: .public)")
+        } else {
+            logger.notice("Capture to preview took \(milliseconds, privacy: .public) ms, mode \(String(describing: mode), privacy: .public)")
         }
     }
 
@@ -60,6 +78,7 @@ final class CaptureCoordinator {
         guard let request = await resolveRequest(for: mode) else { return nil }
 
         do {
+            captureBegan = ContinuousClock.now
             let result = try await capturer.capture(request)
             if case .area(let displayID, let rect, _) = request {
                 previousAreaStore.save(PreviousArea(displayID: displayID, rect: rect))

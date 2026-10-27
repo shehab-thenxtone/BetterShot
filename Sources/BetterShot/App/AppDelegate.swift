@@ -74,6 +74,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         destinations.recordClosed = { actions.recordClosed($0) }
         actions.destinations = destinations
 
+        let updates = UpdateFlow()
         let preferences = PreferencesWindowController(model: model, folderStore: folderStore, destinations: destinations)
         destinations.showPreferences = { preferences.show() }
         let router = AppCommandRouter(
@@ -102,6 +103,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 toggleDesktopIcons: { desktopIcons.setHidden(!desktopIcons.areHidden) },
                 toggleRecording: { Task { await recording.toggle() } },
                 scrollingCapture: { await scrollCapture.run(axis: $0) },
+                checkForUpdates: { await updates.run() },
                 afterCapture: {
                     // Hiding is temporary unless the user chose to keep icons hidden.
                     if desktopIcons.areHidden, !model.settings.keepsDesktopIconsHidden { desktopIcons.setHidden(false) }

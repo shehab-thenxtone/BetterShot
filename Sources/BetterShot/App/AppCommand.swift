@@ -41,6 +41,8 @@ final class AppCommandRouter: AppCommandHandler {
         let toggleRecording: @MainActor () -> Void
         /// Runs a scrolling capture along the given axis and returns when it finishes.
         let scrollingCapture: @MainActor (ScrollAxis) async -> Void
+        /// Asks the release feed whether a newer version exists and tells the user.
+        let checkForUpdates: @MainActor () async -> Void
         /// Runs after every capture attempt finishes, whether or not it produced an image.
         let afterCapture: @MainActor () -> Void
     }
@@ -84,7 +86,7 @@ final class AppCommandRouter: AppCommandHandler {
         case .quit:
             NSApp.terminate(nil)
         case .checkForUpdates:
-            logger.notice("Not implemented yet: \(String(describing: command), privacy: .public)")
+            Task { await actions.checkForUpdates() }
         }
     }
 }

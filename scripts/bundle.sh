@@ -42,7 +42,8 @@ PLIST
 # The same names also work as plain environment variables when running the binary directly.
 for pair in "BetterShotGoogleClientID:BETTERSHOT_GOOGLE_CLIENT_ID" \
             "BetterShotGoogleClientSecret:BETTERSHOT_GOOGLE_CLIENT_SECRET" \
-            "BetterShotOneDriveClientID:BETTERSHOT_ONEDRIVE_CLIENT_ID"; do
+            "BetterShotOneDriveClientID:BETTERSHOT_ONEDRIVE_CLIENT_ID" \
+            "BetterShotUpdateFeedURL:BETTERSHOT_UPDATE_FEED_URL"; do
     key="${pair%%:*}"; var="${pair##*:}"
     if [ -n "${!var:-}" ]; then
         /usr/libexec/PlistBuddy -c "Add :$key string ${!var}" "$APP/Contents/Info.plist"
