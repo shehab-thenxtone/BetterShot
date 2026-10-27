@@ -151,6 +151,73 @@ struct OAuthAuthorizerTests {
     }
 }
 
+struct ClientConfigTests {
+    @Test func aClientIDEnteredLaterTakesEffectImmediately() throws {
+        let configs = InMemoryClientConfigStore()
+        let authorizer = OAuthAuthorizer(configLookup: { configs.config(for: $0) }, store: InMemoryTokenStore())
+
+        #expect(!authorizer.isConfigured(.googleDrive))
+        try configs.save(OAuthClientConfig(clientID: "mine", clientSecret: "secret"), for: .googleDrive)
+
+        #expect(authorizer.isConfigured(.googleDrive))
+        #expect(!authorizer.isConfigured(.oneDrive))
+    }
+
+    @Test func theUsersOwnClientIsUsedForSigningIn() async throws {
+        let configs = InMemoryClientConfigStore()
+        try configs.save(OAuthClientConfig(clientID: "my-own-client"), for: .oneDrive)
+        let transport = FakeTransport { _ in (200, #"{"access_token":"at","refresh_token":"rt","expires_in":3600}"#) }
+        let store = InMemoryTokenStore()
+        let authorizer = OAuthAuthorizer(configLookup: { configs.config(for: $0) }, store: store, transport: transport)
+
+        let seen = SeenURL()
+        try await authorizer.link(.oneDrive, openBrowser: { url in
+            seen.set(url)
+            let query = Dictionary(uniqueKeysWithValues: (URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+            _ = try? await URLSession.shared.data(from: URL(string: "\(query["redirect_uri"]!)/?code=c&state=\(query["state"]!)")!)
+        })
+
+        let query = URLComponents(url: try #require(seen.url), resolvingAgainstBaseURL: false)?.queryItems ?? []
+        #expect(query.first { $0.name == "client_id" }?.value == "my-own-client")
+        // Microsoft registrations take http://localhost, so that is the redirect host used, and the flow still completes.
+        #expect(query.first { $0.name == "redirect_uri" }?.value?.hasPrefix("http://localhost:") == true)
+        #expect(store.token(for: .oneDrive)?.accessToken == "at")
+    }
+
+    @Test func theKeychainStoresKeepAndForgetConfigsAndTokens() throws {
+        let service = "com.bettershot.tests.\(UUID().uuidString)"
+        let configs = KeychainClientConfigStore(service: service)
+        let tokens = KeychainTokenStore(service: service + ".tokens")
+        defer {
+            configs.removeConfig(for: .googleDrive)
+            tokens.removeToken(for: .googleDrive)
+        }
+
+        try configs.save(OAuthClientConfig(clientID: "id", clientSecret: "s"), for: .googleDrive)
+        try tokens.save(OAuthToken(accessToken: "a", refreshToken: "r", expiresAt: Date(timeIntervalSince1970: 5_000)), for: .googleDrive)
+
+        #expect(configs.config(for: .googleDrive) == OAuthClientConfig(clientID: "id", clientSecret: "s"))
+        #expect(configs.config(for: .oneDrive) == nil)
+        #expect(tokens.token(for: .googleDrive)?.refreshToken == "r")
+
+        try configs.save(OAuthClientConfig(clientID: "id2"), for: .googleDrive) // replaces rather than duplicating
+        #expect(configs.config(for: .googleDrive) == OAuthClientConfig(clientID: "id2"))
+
+        configs.removeConfig(for: .googleDrive)
+        tokens.removeToken(for: .googleDrive)
+        #expect(configs.config(for: .googleDrive) == nil)
+        #expect(tokens.token(for: .googleDrive) == nil)
+    }
+}
+
+/// Carries the URL the fake browser was asked to open out of the (Sendable) closure.
+private final class SeenURL: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: URL?
+    var url: URL? { lock.withLock { value } }
+    func set(_ url: URL) { lock.withLock { value = url } }
+}
+
 struct CloudUploaderTests {
     private let png = Data([0x89, 0x50, 0x4E, 0x47])
 

@@ -10,11 +10,14 @@ import OSLog
 @Observable
 final class DestinationsCenter {
     private(set) var linkedProviders: Set<CloudProvider>
+    /// Providers with a client ID, bundled with the build or entered by the user.
+    private(set) var configuredProviders: Set<CloudProvider>
     private(set) var linkingProvider: CloudProvider?
     private(set) var linkError: String?
 
     @ObservationIgnored private let authorizer: OAuthAuthorizer
     @ObservationIgnored private let uploaders: [CloudProvider: any CloudUploading]
+    @ObservationIgnored private let clientConfigs: any ClientConfigStoring
     @ObservationIgnored private let iCloud: ICloudDriveUploader
     @ObservationIgnored private let toast: ToastController
     @ObservationIgnored private let filenameTemplate: () -> FilenameTemplate
@@ -28,21 +31,48 @@ final class DestinationsCenter {
     init(
         authorizer: OAuthAuthorizer,
         uploaders: [CloudProvider: any CloudUploading],
+        clientConfigs: any ClientConfigStoring,
         iCloud: ICloudDriveUploader = ICloudDriveUploader(),
         toast: ToastController,
         filenameTemplate: @escaping () -> FilenameTemplate
     ) {
         self.authorizer = authorizer
         self.uploaders = uploaders
+        self.clientConfigs = clientConfigs
         self.iCloud = iCloud
         self.toast = toast
         self.filenameTemplate = filenameTemplate
         linkedProviders = Set(CloudProvider.allCases.filter { authorizer.isLinked($0) })
+        configuredProviders = Set(CloudProvider.allCases.filter { authorizer.isConfigured($0) })
     }
 
     // MARK: Status for Preferences
 
-    func isConfigured(_ provider: CloudProvider) -> Bool { authorizer.isConfigured(provider) }
+    func isConfigured(_ provider: CloudProvider) -> Bool { configuredProviders.contains(provider) }
+
+    // MARK: Client setup (the user's own app registration)
+
+    /// The client the user entered for `provider`, if any (a bundled one isn't returned, and can't be edited).
+    func savedConfig(for provider: CloudProvider) -> OAuthClientConfig? { clientConfigs.config(for: provider) }
+
+    /// Stores the user's client. An account linked through a different client can't be renewed with the new one,
+    /// so changing the client signs the account out and the user links it again.
+    func saveConfig(_ config: OAuthClientConfig, for provider: CloudProvider) throws {
+        let changed = clientConfigs.config(for: provider) != config
+        try clientConfigs.save(config, for: provider)
+        refreshConfigured()
+        if changed { unlink(provider) }
+    }
+
+    func removeConfig(for provider: CloudProvider) {
+        clientConfigs.removeConfig(for: provider)
+        refreshConfigured()
+        unlink(provider)
+    }
+
+    private func refreshConfigured() {
+        configuredProviders = Set(CloudProvider.allCases.filter { authorizer.isConfigured($0) })
+    }
     var isICloudAvailable: Bool { iCloud.isAvailable }
 
     func isInstalled(_ app: MessagingApp) -> Bool {

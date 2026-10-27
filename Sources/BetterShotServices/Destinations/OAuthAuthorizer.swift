@@ -4,12 +4,28 @@ import Foundation
 /// Links accounts and keeps their access tokens fresh. The browser steps are injected (`openBrowser`), so the
 /// whole flow runs in tests against a fake transport.
 public actor OAuthAuthorizer {
-    private let configs: [CloudProvider: OAuthClientConfig]
+    private let configLookup: @Sendable (CloudProvider) -> OAuthClientConfig?
     private let store: any TokenStoring
     private let transport: any HTTPTransport
     private let now: @Sendable () -> Date
     private let makeReceiver: @Sendable () -> LoopbackReceiver
 
+    /// `configLookup` is asked every time, so a client ID the user enters in Preferences takes effect at once.
+    public init(
+        configLookup: @escaping @Sendable (CloudProvider) -> OAuthClientConfig?,
+        store: any TokenStoring,
+        transport: any HTTPTransport = URLSessionTransport(),
+        now: @escaping @Sendable () -> Date = { Date() },
+        makeReceiver: @escaping @Sendable () -> LoopbackReceiver = { LoopbackReceiver() }
+    ) {
+        self.configLookup = configLookup
+        self.store = store
+        self.transport = transport
+        self.now = now
+        self.makeReceiver = makeReceiver
+    }
+
+    /// A fixed set of client IDs.
     public init(
         configs: [CloudProvider: OAuthClientConfig],
         store: any TokenStoring,
@@ -17,15 +33,11 @@ public actor OAuthAuthorizer {
         now: @escaping @Sendable () -> Date = { Date() },
         makeReceiver: @escaping @Sendable () -> LoopbackReceiver = { LoopbackReceiver() }
     ) {
-        self.configs = configs
-        self.store = store
-        self.transport = transport
-        self.now = now
-        self.makeReceiver = makeReceiver
+        self.init(configLookup: { configs[$0] }, store: store, transport: transport, now: now, makeReceiver: makeReceiver)
     }
 
-    /// False when this build has no client ID for the provider, so linking can't work.
-    public nonisolated func isConfigured(_ provider: CloudProvider) -> Bool { configs[provider] != nil }
+    /// False when there is no client ID for the provider (neither bundled nor entered by the user), so linking can't work.
+    public nonisolated func isConfigured(_ provider: CloudProvider) -> Bool { configLookup(provider) != nil }
 
     public nonisolated func isLinked(_ provider: CloudProvider) -> Bool { store.token(for: provider) != nil }
 
@@ -35,11 +47,11 @@ public actor OAuthAuthorizer {
 
     /// Signs in through the user's browser and stores the resulting token. Cancelling the calling task abandons it.
     public func link(_ provider: CloudProvider, timeout: Duration = .seconds(180), openBrowser: @Sendable (URL) async -> Void) async throws {
-        guard let config = configs[provider] else { throw OAuthError.notConfigured(provider) }
+        guard let config = configLookup(provider) else { throw OAuthError.notConfigured(provider) }
 
         let receiver = makeReceiver()
         defer { receiver.stop() }
-        let redirectURI = try await receiver.start()
+        let redirectURI = try await receiver.start(redirectHost: provider.redirectHost)
         let pkce = PKCE.generate()
         let state = PKCE.randomToken(byteCount: 16)
 
@@ -57,7 +69,7 @@ public actor OAuthAuthorizer {
 
     /// A token good for at least the next minute, renewed first if needed.
     public func accessToken(for provider: CloudProvider) async throws -> String {
-        guard let config = configs[provider] else { throw OAuthError.notConfigured(provider) }
+        guard let config = configLookup(provider) else { throw OAuthError.notConfigured(provider) }
         guard let token = store.token(for: provider) else { throw OAuthError.notLinked(provider) }
         guard token.isExpired(at: now()) else { return token.accessToken }
         guard let refreshToken = token.refreshToken else {

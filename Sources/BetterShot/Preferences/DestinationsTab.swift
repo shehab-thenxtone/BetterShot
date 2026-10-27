@@ -5,6 +5,13 @@ struct DestinationsTab: View {
     let model: SettingsModel
     let center: DestinationsCenter
 
+    @State private var setup: SetupTarget?
+
+    private struct SetupTarget: Identifiable {
+        let provider: CloudProvider
+        var id: String { provider.rawValue }
+    }
+
     var body: some View {
         Form {
             Section {
@@ -21,6 +28,9 @@ struct DestinationsTab: View {
 
             Section("Cloud storage") {
                 ForEach(CloudProvider.allCases, id: \.self) { providerRow($0) }
+                Text("Sign in to the storage you want BetterShot to use. Set Up… takes your own app registration once; Link… then signs you in through your browser.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 if let error = center.linkError {
                     Text(error).font(.caption).foregroundStyle(.red)
                 }
@@ -32,6 +42,7 @@ struct DestinationsTab: View {
             }
         }
         .formStyle(.grouped)
+        .sheet(item: $setup) { ClientSetupSheet(provider: $0.provider, center: center) }
     }
 
     // MARK: Rows
@@ -49,9 +60,14 @@ struct DestinationsTab: View {
                     Button("Cancel") { center.cancelLinking() }
                 } else if isLinked {
                     Button("Unlink") { center.unlink(provider) }
-                } else {
+                } else if center.isConfigured(provider) {
                     Button("Link…") { center.link(provider) }
-                        .disabled(!center.isConfigured(provider) || center.linkingProvider != nil)
+                        .disabled(center.linkingProvider != nil)
+                } else {
+                    Button("Set Up…") { setup = SetupTarget(provider: provider) }
+                }
+                if !isLinking, center.savedConfig(for: provider) != nil {
+                    Button("Credentials…") { setup = SetupTarget(provider: provider) }
                 }
             }
         }
@@ -61,7 +77,7 @@ struct DestinationsTab: View {
     private func status(_ provider: CloudProvider, isLinked: Bool, isLinking: Bool) -> String {
         if isLinking { return "Waiting for your browser…" }
         if isLinked { return "Linked" }
-        return center.isConfigured(provider) ? "Not linked" : "Not set up in this build"
+        return center.isConfigured(provider) ? "Not linked" : "Needs your app registration"
     }
 
     private var iCloudRow: some View {

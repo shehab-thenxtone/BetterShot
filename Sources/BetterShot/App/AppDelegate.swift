@@ -64,10 +64,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editor.onDiscard = { actions.recordClosed($0) }
         editor.captureForMerge = { mode in await coordinator.captureImage(mode)?.image }
 
-        let authorizer = OAuthAuthorizer(configs: OAuthConfigLoader.configs(), store: KeychainTokenStore())
+        // A client ID the user entered in Preferences wins over one bundled with the build.
+        let clientConfigs = KeychainClientConfigStore()
+        let bundledConfigs = OAuthConfigLoader.configs()
+        let authorizer = OAuthAuthorizer(configLookup: { clientConfigs.config(for: $0) ?? bundledConfigs[$0] }, store: KeychainTokenStore())
         let destinations = DestinationsCenter(
             authorizer: authorizer,
             uploaders: [.googleDrive: GoogleDriveUploader(authorizer: authorizer), .oneDrive: OneDriveUploader(authorizer: authorizer)],
+            clientConfigs: clientConfigs,
             toast: toast,
             filenameTemplate: { model.settings.filenameTemplate }
         )

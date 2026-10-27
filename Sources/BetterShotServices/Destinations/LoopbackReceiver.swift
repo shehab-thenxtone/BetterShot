@@ -15,7 +15,7 @@ public final class LoopbackReceiver: @unchecked Sendable {
     public init() {}
 
     /// Starts listening and returns the redirect URI to register with the authorization request.
-    public func start() async throws -> String {
+    public func start(redirectHost: String = "127.0.0.1") async throws -> String {
         let parameters = NWParameters.tcp
         parameters.requiredLocalEndpoint = NWEndpoint.hostPort(host: "127.0.0.1", port: .any)
         let listener = try NWListener(using: parameters)
@@ -36,7 +36,7 @@ public final class LoopbackReceiver: @unchecked Sendable {
             listener.start(queue: queue)
         }
         lock.withLock { self.listener = listener }
-        return "http://127.0.0.1:\(port)"
+        return "http://\(redirectHost):\(port)"
     }
 
     /// The first request line that looks like an OAuth redirect (`GET /?code=…` or `GET /?error=…`), or

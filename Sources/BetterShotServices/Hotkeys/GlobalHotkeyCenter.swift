@@ -15,13 +15,31 @@ public final class GlobalHotkeyCenter {
         }
     }
 
-    private static let signature: OSType = 0x4253_4854 // 'BSHT'
+    private nonisolated static let signature: OSType = 0x4253_4854 // 'BSHT'
 
     private var registrations: [UInt32: (ref: EventHotKeyRef, handler: @MainActor () -> Void)] = [:]
     private var eventHandler: EventHandlerRef?
     private var nextID: UInt32 = 1
 
     public init() {}
+
+    /// True when `shortcut` could be registered right now, i.e. neither the system nor another app (nor BetterShot
+    /// itself) holds it. It is registered and released again at once.
+    public nonisolated static func isAvailable(_ shortcut: KeyShortcut) -> Bool {
+        guard let keyCode = KeyCodeMap.keyCode(for: shortcut.key) else { return false }
+        var ref: EventHotKeyRef?
+        let status = RegisterEventHotKey(
+            keyCode,
+            KeyCodeMap.carbonModifiers(for: shortcut.modifiers),
+            EventHotKeyID(signature: signature, id: 0),
+            GetApplicationEventTarget(),
+            0,
+            &ref
+        )
+        guard status == noErr, let ref else { return false }
+        UnregisterEventHotKey(ref)
+        return true
+    }
 
     /// Replaces every registered hotkey with `bindings`. Returns the shortcuts that couldn't be registered
     /// (unknown key, or already claimed by the system or another app).

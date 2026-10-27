@@ -12,6 +12,15 @@ public enum CloudProvider: String, Codable, CaseIterable, Sendable {
         }
     }
 
+    /// The host in the loopback redirect: Google documents 127.0.0.1, while a Microsoft app registration takes
+    /// `http://localhost` (matched on any port).
+    public var redirectHost: String {
+        switch self {
+        case .googleDrive: "127.0.0.1"
+        case .oneDrive: "localhost"
+        }
+    }
+
     var authorizeURL: URL {
         switch self {
         case .googleDrive: URL(string: "https://accounts.google.com/o/oauth2/v2/auth")!
@@ -45,7 +54,7 @@ public enum CloudProvider: String, Codable, CaseIterable, Sendable {
 
 /// The app's registration with a provider. Supplied by configuration, never hardcoded (docs/PLAN.md §4).
 /// Desktop OAuth clients are public clients: a Google "secret" is not confidential, and OneDrive has none.
-public struct OAuthClientConfig: Equatable, Sendable {
+public struct OAuthClientConfig: Codable, Equatable, Sendable {
     public let clientID: String
     public let clientSecret: String?
 

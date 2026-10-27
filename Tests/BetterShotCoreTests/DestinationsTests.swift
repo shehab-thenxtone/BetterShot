@@ -128,6 +128,22 @@ struct LoopbackRedirectTests {
     }
 }
 
+struct CloudProviderTests {
+    @Test func eachProviderUsesTheRedirectHostItsRegistrationAccepts() {
+        #expect(CloudProvider.googleDrive.redirectHost == "127.0.0.1")
+        #expect(CloudProvider.oneDrive.redirectHost == "localhost")
+    }
+
+    @Test func aClientConfigSurvivesBeingStoredAsJSON() throws {
+        let config = OAuthClientConfig(clientID: "id", clientSecret: "secret")
+
+        let decoded = try JSONDecoder().decode(OAuthClientConfig.self, from: JSONEncoder().encode(config))
+
+        #expect(decoded == config)
+        #expect(try JSONDecoder().decode(OAuthClientConfig.self, from: Data(#"{"clientID":"x"}"#.utf8)).clientSecret == nil)
+    }
+}
+
 struct MessagingHandoffTests {
     @Test func opensTheInstalledDesktopApp() {
         let plan = MessagingHandoff.plan(for: .whatsApp, isInstalled: { $0 == "net.whatsapp.WhatsApp" })

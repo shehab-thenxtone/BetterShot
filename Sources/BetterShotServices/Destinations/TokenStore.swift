@@ -19,41 +19,22 @@ public struct KeychainError: LocalizedError, Equatable {
 }
 
 public struct KeychainTokenStore: TokenStoring {
-    private let service: String
+    private let blob: KeychainBlob
 
     public init(service: String = "com.bettershot.app.oauth") {
-        self.service = service
+        blob = KeychainBlob(service: service)
     }
 
     public func token(for provider: CloudProvider) -> OAuthToken? {
-        var query = baseQuery(provider)
-        query[kSecReturnData as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
-        var result: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess, let data = result as? Data else { return nil }
-        return try? JSONDecoder().decode(OAuthToken.self, from: data)
+        blob.read(account: provider.rawValue).flatMap { try? JSONDecoder().decode(OAuthToken.self, from: $0) }
     }
 
     public func save(_ token: OAuthToken, for provider: CloudProvider) throws {
-        let data = try JSONEncoder().encode(token)
-        removeToken(for: provider)
-        var attributes = baseQuery(provider)
-        attributes[kSecValueData as String] = data
-        attributes[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-        let status = SecItemAdd(attributes as CFDictionary, nil)
-        guard status == errSecSuccess else { throw KeychainError(status: status) }
+        try blob.write(try JSONEncoder().encode(token), account: provider.rawValue)
     }
 
     public func removeToken(for provider: CloudProvider) {
-        SecItemDelete(baseQuery(provider) as CFDictionary)
-    }
-
-    private func baseQuery(_ provider: CloudProvider) -> [String: Any] {
-        [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: provider.rawValue,
-        ]
+        blob.remove(account: provider.rawValue)
     }
 }
 
