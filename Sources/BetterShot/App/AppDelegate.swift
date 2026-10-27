@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var desktopIcons: DesktopIcons?
     private var postCaptureFlow: PostCaptureFlow?
     private var textCaptureFlow: TextCaptureFlow?
+    private var scrollCapture: ScrollCaptureController?
     private var recording: RecordingController?
     private var recordingFlow: RecordingFlow?
     private var saveFolderStore: (any SaveFolderStoring)?
@@ -43,6 +44,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let countdown = CountdownController()
         coordinator.countdown = { await countdown.run(seconds: $0) }
         coordinator.selfTimerSeconds = { model.settings.selfTimerDelay.seconds }
+
+        let scrollCapture = ScrollCaptureController(capturer: ScreenCaptureKitCapturer(), deliver: { flow.present($0) })
 
         let recordingFlow = RecordingFlow(folderStore: folderStore, settings: model, toast: toast)
         let recording = RecordingController()
@@ -87,6 +90,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 },
                 toggleDesktopIcons: { desktopIcons.setHidden(!desktopIcons.areHidden) },
                 toggleRecording: { Task { await recording.toggle() } },
+                scrollingCapture: { await scrollCapture.run(axis: $0) },
                 afterCapture: {
                     // Hiding is temporary unless the user chose to keep icons hidden.
                     if desktopIcons.areHidden, !model.settings.keepsDesktopIconsHidden { desktopIcons.setHidden(false) }
@@ -110,6 +114,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.desktopIcons = desktopIcons
         postCaptureFlow = flow
         textCaptureFlow = textCapture
+        self.scrollCapture = scrollCapture
         self.recording = recording
         self.recordingFlow = recordingFlow
         saveFolderStore = folderStore

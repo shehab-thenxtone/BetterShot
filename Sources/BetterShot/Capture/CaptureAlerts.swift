@@ -30,6 +30,20 @@ enum CaptureAlerts {
         alert.runModal()
     }
 
+    /// Scrolling Capture scrolls other apps by posting events, which macOS only allows with Accessibility access.
+    static func presentAccessibilityNeeded() {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Accessibility permission needed"
+        alert.informativeText = "Scrolling Capture scrolls other apps for you, which macOS only allows with Accessibility access. Enable BetterShot under Privacy & Security → Accessibility, then try again."
+        alert.addButton(withTitle: "Open System Settings")
+        alert.addButton(withTitle: "Cancel")
+        if alert.runModal() == .alertFirstButtonReturn,
+           let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
     static func presentPermissionDenied() {
         let alert = NSAlert()
         alert.alertStyle = .warning

@@ -5,6 +5,8 @@ import OSLog
 /// Everything the user can trigger from the menu bar (requirements §3.1).
 enum AppCommand: Equatable {
     case capture(CaptureMode)
+    /// `.capture(.scrolling)` scrolls vertically; this is its horizontal counterpart (wide tables, timelines).
+    case captureScrollingHorizontal
     case toggleHideDesktopIcons
     case openFile
     case pinToScreen
@@ -37,6 +39,8 @@ final class AppCommandRouter: AppCommandHandler {
         let toggleDesktopIcons: @MainActor () -> Void
         /// Starts a screen recording, or stops the one in progress.
         let toggleRecording: @MainActor () -> Void
+        /// Runs a scrolling capture along the given axis and returns when it finishes.
+        let scrollingCapture: @MainActor (ScrollAxis) async -> Void
         /// Runs after every capture attempt finishes, whether or not it produced an image.
         let afterCapture: @MainActor () -> Void
     }
@@ -50,6 +54,16 @@ final class AppCommandRouter: AppCommandHandler {
         switch command {
         case .capture(.recordScreen):
             actions.toggleRecording()
+        case .capture(.scrolling):
+            Task {
+                await actions.scrollingCapture(.vertical)
+                actions.afterCapture()
+            }
+        case .captureScrollingHorizontal:
+            Task {
+                await actions.scrollingCapture(.horizontal)
+                actions.afterCapture()
+            }
         case .capture(let mode):
             Task {
                 await captureCoordinator.start(mode)

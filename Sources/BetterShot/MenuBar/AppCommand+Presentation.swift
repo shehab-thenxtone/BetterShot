@@ -13,6 +13,8 @@ extension AppCommand {
         switch self {
         case .capture(let mode):
             CommandPresentation(title: mode.title, symbolName: mode.symbolName, shortcut: hotkeys.shortcut(for: mode))
+        case .captureScrollingHorizontal:
+            CommandPresentation(title: "Scrolling Capture (Horizontal)", symbolName: "arrow.right.to.line", shortcut: nil)
         case .toggleHideDesktopIcons:
             CommandPresentation(title: "Hide Desktop Icons", symbolName: "eye.slash", shortcut: nil)
         case .openFile:

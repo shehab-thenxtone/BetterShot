@@ -44,6 +44,7 @@ final class StatusItemController: NSObject {
         menu.autoenablesItems = false // `menuNeedsUpdate` decides which items are enabled
         for mode in CaptureMode.allCases {
             menu.addItem(item(for: .capture(mode)))
+            if mode == .scrolling { menu.addItem(item(for: .captureScrollingHorizontal)) }
         }
         menu.addItem(.separator())
         menu.addItem(item(for: .toggleHideDesktopIcons))
