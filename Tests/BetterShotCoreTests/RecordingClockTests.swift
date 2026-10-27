@@ -75,6 +75,14 @@ struct RecordingClockTests {
         #expect(isClose(clock.retime(100.1), 0))
     }
 
+    @Test func clockStringsShowMinutesAndSecondsAndHoursWhenNeeded() {
+        #expect(RecordingTime.clockString(0) == "0:00")
+        #expect(RecordingTime.clockString(7.9) == "0:07") // whole seconds, rounded down
+        #expect(RecordingTime.clockString(723) == "12:03")
+        #expect(RecordingTime.clockString(3723) == "1:02:03")
+        #expect(RecordingTime.clockString(-5) == "0:00")
+    }
+
     @Test func isPausedReflectsTheCurrentState() {
         var clock = RecordingClock()
         #expect(!clock.isPaused)

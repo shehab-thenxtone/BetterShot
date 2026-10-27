@@ -46,6 +46,17 @@ struct GeneralTab: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Recording") {
+                GIFSettingsView(
+                    mode: binding(\.gifExportMode) { $0.updating(gifExportMode: $1) },
+                    sourceFramesPerSecond: nil,
+                    recordingDuration: nil
+                )
+                Text("How recordings are turned into GIFs. The Export GIF window shows a live size estimate for a real recording.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("After capture") {
                 LabeledContent("Hide preview after") {
                     HStack {

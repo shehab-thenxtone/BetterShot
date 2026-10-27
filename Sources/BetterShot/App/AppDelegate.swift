@@ -9,6 +9,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var desktopIcons: DesktopIcons?
     private var postCaptureFlow: PostCaptureFlow?
     private var textCaptureFlow: TextCaptureFlow?
+    private var recording: RecordingController?
+    private var recordingFlow: RecordingFlow?
+    private var saveFolderStore: (any SaveFolderStoring)?
     private var editorPresenter: EditorPresenter?
     private var pinManager: PinManager?
     private var resultBar: ResultBarController?
@@ -41,6 +44,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         coordinator.countdown = { await countdown.run(seconds: $0) }
         coordinator.selfTimerSeconds = { model.settings.selfTimerDelay.seconds }
 
+        let recordingFlow = RecordingFlow(folderStore: folderStore, settings: model, toast: toast)
+        let recording = RecordingController()
+        recording.onFinished = { recordingFlow.present($0) }
+        RecordingsFolder.removeFiles(in: RecordingsFolder.defaultDirectory, olderThan: 7 * 86_400) // unsaved recordings keep a week
+
         let editor = EditorPresenter(stylesStore: UserDefaultsToolStylesStore(), ocr: ocr, folderStore: folderStore, settings: { model.settings })
         let pins = PinManager(actions: actions)
         let resultBar = ResultBarController(pins: pins, actions: actions)
@@ -64,8 +72,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 },
                 openFile: {
-                    if let loaded = ImageFiles.chooseWithScale(message: "Choose an image to open in the editor") {
-                        editor.open(image: loaded.image, pointScale: loaded.pointScale)
+                    switch ImageFiles.chooseMedia(message: "Choose an image or a recording to open") {
+                    case .image(let loaded): editor.open(image: loaded.image, pointScale: loaded.pointScale)
+                    case .video(let url): recordingFlow.open(url: url)
+                    case nil: break
                     }
                 },
                 restoreRecentlyClosed: {
@@ -76,6 +86,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 },
                 toggleDesktopIcons: { desktopIcons.setHidden(!desktopIcons.areHidden) },
+                toggleRecording: { Task { await recording.toggle() } },
                 afterCapture: {
                     // Hiding is temporary unless the user chose to keep icons hidden.
                     if desktopIcons.areHidden, !model.settings.keepsDesktopIconsHidden { desktopIcons.setHidden(false) }
@@ -85,7 +96,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let statusItem = StatusItemController(
             handler: router,
             hotkeys: model.settings.hotkeys,
-            state: { .init(desktopIconsHidden: desktopIcons.areHidden, canRestoreRecentlyClosed: recentlyClosed.hasItem) }
+            state: {
+                .init(
+                    desktopIconsHidden: desktopIcons.areHidden,
+                    canRestoreRecentlyClosed: recentlyClosed.hasItem,
+                    isRecording: recording.isActive
+                )
+            }
         )
         let hotkeys = HotkeyController(handler: router)
 
@@ -93,6 +110,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.desktopIcons = desktopIcons
         postCaptureFlow = flow
         textCaptureFlow = textCapture
+        self.recording = recording
+        self.recordingFlow = recordingFlow
+        saveFolderStore = folderStore
         editorPresenter = editor
         pinManager = pins
         self.resultBar = resultBar
@@ -105,6 +125,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         reportUnavailable(hotkeys.apply(model.settings.hotkeys))
         syncLaunchAtLoginWithSystem(model)
+    }
+
+    /// Quitting mid-recording asks first (requirements §3.1 item 17); confirming stops the recording and saves it.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let recording, recording.isActive else { return .terminateNow }
+
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "A recording is in progress"
+        alert.informativeText = "Quit now to stop recording and save it to your Screenshots folder?"
+        alert.addButton(withTitle: "Stop Recording and Quit")
+        alert.addButton(withTitle: "Cancel")
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return .terminateCancel }
+
+        let folderStore = saveFolderStore
+        Task {
+            if let result = await recording.stop(deliver: false), let folderStore {
+                _ = try? LocalFileSaver(folderStore: folderStore).copy(result.url, fileExtension: "mp4")
+            }
+            NSApp.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
     }
 
     func applicationWillTerminate(_ notification: Notification) {

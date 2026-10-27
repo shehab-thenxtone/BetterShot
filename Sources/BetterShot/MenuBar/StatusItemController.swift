@@ -9,6 +9,7 @@ final class StatusItemController: NSObject {
     struct MenuState {
         var desktopIconsHidden: Bool
         var canRestoreRecentlyClosed: Bool
+        var isRecording: Bool
     }
 
     private unowned let handler: any AppCommandHandler
@@ -90,6 +91,10 @@ extension StatusItemController: NSMenuDelegate {
             switch box.command {
             case .toggleHideDesktopIcons: item.state = current.desktopIconsHidden ? .on : .off
             case .restoreRecentlyClosed: item.isEnabled = current.canRestoreRecentlyClosed
+            case .capture(.recordScreen):
+                // While recording, the same item becomes the way to stop (and works from the menu bar even if the HUD is hidden).
+                item.title = current.isRecording ? "Stop Recording" : "Record Screen"
+                item.image = NSImage(systemSymbolName: current.isRecording ? "stop.circle.fill" : "video", accessibilityDescription: item.title)
             default: break
             }
         }

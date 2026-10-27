@@ -6,11 +6,13 @@ enum SelectionMode {
     case area
     case window
     case allInOne
+    /// Screen recording: an area, or the whole display with Return. Windows can't be recorded.
+    case recording
 
     var allowsArea: Bool { self != .window }
-    var allowsWindow: Bool { self != .area }
-    /// All-In-One also accepts Return to capture the whole display.
-    var allowsFullscreenShortcut: Bool { self == .allInOne }
+    var allowsWindow: Bool { self == .window || self == .allInOne }
+    /// All-In-One and recording also accept Return to use the whole display.
+    var allowsFullscreenShortcut: Bool { self == .allInOne || self == .recording }
 }
 
 /// Carries display IDs rather than `NSScreen` so the value is `Sendable`; callers look the screen up.

@@ -1,3 +1,16 @@
+import Foundation
+
+public enum RecordingTime {
+    /// Elapsed time as shown on the recording HUD: "0:07", "12:03", or "1:02:03" past an hour. Whole seconds, rounded down.
+    public static func clockString(_ seconds: Double) -> String {
+        let total = max(0, Int(seconds.rounded(.down)))
+        let (hours, minutes, secs) = (total / 3600, (total % 3600) / 60, total % 60)
+        return hours > 0
+            ? String(format: "%d:%02d:%02d", hours, minutes, secs)
+            : String(format: "%d:%02d", minutes, secs)
+    }
+}
+
 /// Maps frame timestamps from a live capture to times in the output file, skipping paused stretches.
 /// Timestamps are seconds in any single timebase (the recorder uses the host clock). Pause and resume are
 /// stamped with the same clock, because a static screen delivers no frames during a pause to reveal it.

@@ -35,6 +35,8 @@ final class AppCommandRouter: AppCommandHandler {
         let openFile: @MainActor () -> Void
         let restoreRecentlyClosed: @MainActor () -> Void
         let toggleDesktopIcons: @MainActor () -> Void
+        /// Starts a screen recording, or stops the one in progress.
+        let toggleRecording: @MainActor () -> Void
         /// Runs after every capture attempt finishes, whether or not it produced an image.
         let afterCapture: @MainActor () -> Void
     }
@@ -46,6 +48,8 @@ final class AppCommandRouter: AppCommandHandler {
 
     func perform(_ command: AppCommand) {
         switch command {
+        case .capture(.recordScreen):
+            actions.toggleRecording()
         case .capture(let mode):
             Task {
                 await captureCoordinator.start(mode)
