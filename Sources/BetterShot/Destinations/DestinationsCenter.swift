@@ -14,10 +14,13 @@ final class DestinationsCenter {
     private(set) var configuredProviders: Set<CloudProvider>
     private(set) var linkingProvider: CloudProvider?
     private(set) var linkError: String?
+    /// The folder each provider's desktop app syncs, chosen by the user or detected; absent when there is none.
+    private(set) var syncedFolderURLs: [CloudProvider: URL]
 
     @ObservationIgnored private let authorizer: OAuthAuthorizer
     @ObservationIgnored private let uploaders: [CloudProvider: any CloudUploading]
     @ObservationIgnored private let clientConfigs: any ClientConfigStoring
+    @ObservationIgnored private let syncedFolderStore: SyncedFolders
     @ObservationIgnored private let iCloud: ICloudDriveUploader
     @ObservationIgnored private let toast: ToastController
     @ObservationIgnored private let filenameTemplate: () -> FilenameTemplate
@@ -32,6 +35,7 @@ final class DestinationsCenter {
         authorizer: OAuthAuthorizer,
         uploaders: [CloudProvider: any CloudUploading],
         clientConfigs: any ClientConfigStoring,
+        syncedFolders: SyncedFolders = SyncedFolders(),
         iCloud: ICloudDriveUploader = ICloudDriveUploader(),
         toast: ToastController,
         filenameTemplate: @escaping () -> FilenameTemplate
@@ -39,11 +43,50 @@ final class DestinationsCenter {
         self.authorizer = authorizer
         self.uploaders = uploaders
         self.clientConfigs = clientConfigs
+        syncedFolderStore = syncedFolders
         self.iCloud = iCloud
         self.toast = toast
         self.filenameTemplate = filenameTemplate
         linkedProviders = Set(CloudProvider.allCases.filter { authorizer.isLinked($0) })
         configuredProviders = Set(CloudProvider.allCases.filter { authorizer.isConfigured($0) })
+        syncedFolderURLs = Self.folders(in: syncedFolders)
+    }
+
+    // MARK: Synced folders (the Google Drive / OneDrive desktop apps)
+
+    func folder(for provider: CloudProvider) -> URL? { syncedFolderURLs[provider] }
+
+    /// True when the user picked the folder, false when it was detected.
+    func isFolderChosen(for provider: CloudProvider) -> Bool { syncedFolderStore.chosenFolder(for: provider) != nil }
+
+    /// Looks again, e.g. when Preferences opens after the desktop app was installed.
+    func refreshFolders() {
+        syncedFolderURLs = Self.folders(in: syncedFolderStore)
+    }
+
+    func chooseFolder(for provider: CloudProvider) {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.directoryURL = folder(for: provider) ?? FileManager.default.homeDirectoryForCurrentUser
+        panel.message = "Choose the folder that the \(SyncedFolder.syncApp(for: provider).name) app keeps in sync"
+        panel.prompt = "Use Folder"
+        NSApp.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        syncedFolderStore.choose(url, for: provider)
+        refreshFolders()
+    }
+
+    func useDetectedFolder(for provider: CloudProvider) {
+        syncedFolderStore.choose(nil, for: provider)
+        refreshFolders()
+    }
+
+    private static func folders(in store: SyncedFolders) -> [CloudProvider: URL] {
+        Dictionary(uniqueKeysWithValues: CloudProvider.allCases.compactMap { provider in
+            store.folder(for: provider).map { (provider, $0) }
+        })
     }
 
     // MARK: Status for Preferences
@@ -135,17 +178,30 @@ final class DestinationsCenter {
             upload(image, with: iCloud, label: "iCloud Drive")
             return true
         }
-        guard let provider = target.cloudProvider, let uploader = uploaders[provider] else { return false }
-        guard authorizer.isConfigured(provider) else {
-            present(OAuthError.notConfigured(provider).localizedDescription, title: "\(provider.displayName) isn't set up", offersPreferences: false)
-            return false
+        guard let provider = target.cloudProvider else { return false }
+        // Signed in: upload through the account, which also gives a share link.
+        if authorizer.isLinked(provider), let uploader = uploaders[provider] {
+            upload(image, with: uploader, label: provider.displayName)
+            return true
         }
-        guard authorizer.isLinked(provider) else {
-            present("Link your account in Preferences → Destinations first.", title: "\(provider.displayName) isn't linked", offersPreferences: true)
-            return false
+        // Otherwise copy into the folder the desktop app syncs, which needs no sign-in at all.
+        if let folder = syncedFolderStore.folder(for: provider) {
+            upload(image, with: SyncedFolderUploader(root: folder), label: provider.displayName, syncApp: SyncedFolder.syncApp(for: provider))
+            return true
         }
-        upload(image, with: uploader, label: provider.displayName)
-        return true
+        present(
+            "Choose the folder that the \(SyncedFolder.syncApp(for: provider).name) app syncs, in Preferences → Destinations.",
+            title: "\(provider.displayName) isn't set up",
+            offersPreferences: true
+        )
+        return false
+    }
+
+    /// "Saved to Google Drive — syncing", or a hint to open the desktop app, which does the actual upload.
+    private func savedMessage(_ label: String, syncApp: (name: String, bundleIdentifier: String)?) -> String {
+        guard let syncApp else { return "Saved to \(label)" }
+        let isRunning = !NSRunningApplication.runningApplications(withBundleIdentifier: syncApp.bundleIdentifier).isEmpty
+        return isRunning ? "Saved to \(label) — syncing" : "Saved to \(label) — open \(syncApp.name) to sync it"
     }
 
     /// The image goes onto the clipboard alone (no caption), then the desktop app or the web client opens to paste into.
@@ -163,7 +219,12 @@ final class DestinationsCenter {
         }
     }
 
-    private func upload(_ image: CGImage, with uploader: any CloudUploading, label: String) {
+    private func upload(
+        _ image: CGImage,
+        with uploader: any CloudUploading,
+        label: String,
+        syncApp: (name: String, bundleIdentifier: String)? = nil
+    ) {
         let data: Data
         do {
             data = try ImageExporter.data(for: image, format: .png)
@@ -178,7 +239,7 @@ final class DestinationsCenter {
             do {
                 let result = try await uploader.upload(data, filename: filename, mimeType: "image/png")
                 if result.location.isFileURL && !result.isShareableLink {
-                    toast.show("Saved to \(label)", symbol: "checkmark.icloud")
+                    toast.show(savedMessage(label, syncApp: syncApp), symbol: "checkmark.icloud", duration: 3.5)
                 } else {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(result.location.absoluteString, forType: .string)

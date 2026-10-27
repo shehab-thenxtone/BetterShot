@@ -28,7 +28,7 @@ struct DestinationsTab: View {
 
             Section("Cloud storage") {
                 ForEach(CloudProvider.allCases, id: \.self) { providerRow($0) }
-                Text("Sign in to the storage you want BetterShot to use. Set Up… takes your own app registration once; Link… then signs you in through your browser.")
+                Text("Images are copied into a BetterShot folder inside the Google Drive or OneDrive folder on your Mac, and that app uploads them, so no sign-in is needed. Signing in is optional: it lets BetterShot upload directly and copy a share link.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 if let error = center.linkError {
@@ -42,6 +42,7 @@ struct DestinationsTab: View {
             }
         }
         .formStyle(.grouped)
+        .onAppear { center.refreshFolders() }
         .sheet(item: $setup) { ClientSetupSheet(provider: $0.provider, center: center) }
     }
 
@@ -49,22 +50,53 @@ struct DestinationsTab: View {
 
     @ViewBuilder
     private func providerRow(_ provider: CloudProvider) -> some View {
+        folderRow(provider)
+        accountRow(provider)
+    }
+
+    /// Where images go: the folder the desktop app syncs. No sign-in, client ID or secret involved.
+    private func folderRow(_ provider: CloudProvider) -> some View {
+        LabeledContent(provider.displayName) {
+            HStack {
+                if let folder = center.folder(for: provider) {
+                    Text((folder.path as NSString).abbreviatingWithTildeInPath)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .foregroundStyle(.secondary)
+                        .help(folder.path)
+                } else {
+                    Text("\(SyncedFolder.syncApp(for: provider).name) folder not found")
+                        .foregroundStyle(.secondary)
+                }
+                Button("Choose…") { center.chooseFolder(for: provider) }
+                    .help("Pick the folder that the \(SyncedFolder.syncApp(for: provider).name) app syncs")
+                if center.isFolderChosen(for: provider) {
+                    Button("Auto") { center.useDetectedFolder(for: provider) }
+                        .help("Go back to the folder BetterShot found by itself")
+                }
+            }
+        }
+    }
+
+    /// Optional: signing in lets BetterShot upload through the account and copy a share link.
+    private func accountRow(_ provider: CloudProvider) -> some View {
         let isLinked = center.linkedProviders.contains(provider)
         let isLinking = center.linkingProvider == provider
 
-        LabeledContent(provider.displayName) {
+        return LabeledContent("\(provider.displayName) sign-in") {
             HStack {
-                Text(status(provider, isLinked: isLinked, isLinking: isLinking))
+                Text(status(isLinked: isLinked, isLinking: isLinking))
                     .foregroundStyle(.secondary)
                 if isLinking {
                     Button("Cancel") { center.cancelLinking() }
                 } else if isLinked {
-                    Button("Unlink") { center.unlink(provider) }
+                    Button("Sign Out") { center.unlink(provider) }
                 } else if center.isConfigured(provider) {
-                    Button("Link…") { center.link(provider) }
+                    Button("Sign In…") { center.link(provider) }
                         .disabled(center.linkingProvider != nil)
                 } else {
                     Button("Set Up…") { setup = SetupTarget(provider: provider) }
+                        .help("Sign-in needs an app registration of your own; the folder above works without it")
                 }
                 if !isLinking, center.savedConfig(for: provider) != nil {
                     Button("Credentials…") { setup = SetupTarget(provider: provider) }
@@ -74,10 +106,9 @@ struct DestinationsTab: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func status(_ provider: CloudProvider, isLinked: Bool, isLinking: Bool) -> String {
+    private func status(isLinked: Bool, isLinking: Bool) -> String {
         if isLinking { return "Waiting for your browser…" }
-        if isLinked { return "Linked" }
-        return center.isConfigured(provider) ? "Not linked" : "Needs your app registration"
+        return isLinked ? "Signed in — copies a share link" : "Optional — adds share links"
     }
 
     private var iCloudRow: some View {

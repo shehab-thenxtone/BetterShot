@@ -22,6 +22,19 @@ func cloudSafeFilename(_ name: String) -> String {
     name.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
 }
 
+/// Writes `data` into `folder` (created if needed) under a name that isn't taken, never overwriting, like Finder.
+func writeUnique(_ data: Data, filename: String, in folder: URL) throws -> URL {
+    let fileManager = FileManager.default
+    try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
+    let name = UniqueFilename.resolve(
+        cloudSafeFilename(filename),
+        isTaken: { fileManager.fileExists(atPath: folder.appendingPathComponent($0).path) }
+    )
+    let file = folder.appendingPathComponent(name)
+    try data.write(to: file, options: .withoutOverwriting)
+    return file
+}
+
 // MARK: Google Drive
 
 /// Uploads to the root of the user's Drive with the per-file scope, then makes the file readable by anyone with
@@ -123,6 +136,44 @@ public struct OneDriveUploader: CloudUploading {
     }
 }
 
+// MARK: Folders synced by the Google Drive / OneDrive desktop apps
+
+public enum SyncedFolderError: LocalizedError, Equatable {
+    case folderMissing
+    case writeFailed(String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .folderMissing: "The synced folder can't be found. Open Preferences → Destinations and choose it again."
+        case .writeFailed(let reason): "The file couldn't be copied into the synced folder (\(reason))."
+        }
+    }
+}
+
+/// Copies into a "BetterShot" folder inside a folder that a desktop sync app (Google Drive, OneDrive) keeps in sync,
+/// so no sign-in or app registration is needed. The app uploads it on its own; BetterShot can't make a share link
+/// from here, so the result is the local file.
+public struct SyncedFolderUploader: CloudUploading {
+    private let root: URL
+
+    public init(root: URL) {
+        self.root = root
+    }
+
+    public func upload(_ data: Data, filename: String, mimeType: String) async throws -> UploadResult {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: root.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            throw SyncedFolderError.folderMissing
+        }
+        do {
+            let file = try writeUnique(data, filename: filename, in: root.appendingPathComponent("BetterShot", isDirectory: true))
+            return UploadResult(location: file, isShareableLink: false)
+        } catch {
+            throw SyncedFolderError.writeFailed(error.localizedDescription)
+        }
+    }
+}
+
 // MARK: iCloud Drive
 
 public enum ICloudDriveError: LocalizedError, Equatable {
@@ -161,13 +212,7 @@ public struct ICloudDriveUploader: CloudUploading {
         let fileManager = FileManager.default
 
         do {
-            try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
-            let name = UniqueFilename.resolve(
-                cloudSafeFilename(filename),
-                isTaken: { fileManager.fileExists(atPath: folder.appendingPathComponent($0).path) }
-            )
-            let file = folder.appendingPathComponent(name)
-            try data.write(to: file, options: .withoutOverwriting)
+            let file = try writeUnique(data, filename: filename, in: folder)
             let link = try? fileManager.url(forPublishingUbiquitousItemAt: file, expiration: nil)
             return UploadResult(location: link ?? file, isShareableLink: link != nil)
         } catch {
