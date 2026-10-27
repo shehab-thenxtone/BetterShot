@@ -3,6 +3,8 @@ import Foundation
 /// User-configurable filename pattern. Supports `{date}` (yyyy-MM-dd) and `{time}` (HH.mm.ss).
 public struct FilenameTemplate: Equatable, Hashable, Codable, Sendable {
     public static let `default` = FilenameTemplate(rawValue: "Screenshot {date} at {time}")
+    /// Fixed name pattern for saved screen recordings (MP4 / GIF).
+    public static let recording = FilenameTemplate(rawValue: "Screen Recording {date} at {time}")
 
     public let rawValue: String
 
