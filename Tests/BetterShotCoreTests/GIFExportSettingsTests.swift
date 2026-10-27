@@ -28,6 +28,16 @@ struct GIFExportSettingsTests {
         #expect(settings.scale == .full)
     }
 
+    @Test func autoModeDerivesSettingsFromTheSourceVideo() {
+        #expect(GIFExportMode.auto.settings(sourceFramesPerSecond: 60) == GIFExportSettings.auto(sourceFramesPerSecond: 30))
+        #expect(GIFExportMode.auto.settings(sourceFramesPerSecond: 24).framesPerSecond == 24)
+    }
+
+    @Test func manualModeUsesTheChosenSettingsRegardlessOfTheSource() {
+        let chosen = GIFExportSettings(framesPerSecond: 10, colorDepth: .high, isDitheringEnabled: false, scale: .half)
+        #expect(GIFExportMode.manual(chosen).settings(sourceFramesPerSecond: 60) == chosen)
+    }
+
     @Test func estimatedSizeGrowsWithFrameRateColorsAndScale() {
         let base = GIFExportSettings(framesPerSecond: 15, colorDepth: .medium, scale: .full)
         let size = { (s: GIFExportSettings) in s.estimatedByteCount(width: 1280, height: 720, duration: 10) }

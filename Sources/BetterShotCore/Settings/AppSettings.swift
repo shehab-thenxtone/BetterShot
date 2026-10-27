@@ -8,6 +8,14 @@ public enum StorageTarget: String, Codable, CaseIterable, Sendable {
 public enum GIFExportMode: Equatable, Codable, Sendable {
     case auto
     case manual(GIFExportSettings)
+
+    /// The concrete export settings. Auto derives them from the source video's frame rate (requirements §3.1a).
+    public func settings(sourceFramesPerSecond: Int) -> GIFExportSettings {
+        switch self {
+        case .auto: .auto(sourceFramesPerSecond: sourceFramesPerSecond)
+        case .manual(let settings): settings
+        }
+    }
 }
 
 /// All user preferences as one value. Per-destination account state is added in a later phase.
