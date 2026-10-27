@@ -30,9 +30,6 @@ struct GeneralTab: View {
                 Text("Example: \(exampleFilename). Use {date} and {time}.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Picker("Cloud button sends to", selection: binding(\.defaultStorageTarget) { $0.updating(defaultStorageTarget: $1) }) {
-                    ForEach(StorageTarget.allCases, id: \.self) { Text($0.label).tag($0) }
-                }
             }
 
             Section("Capture") {
@@ -105,16 +102,5 @@ struct GeneralTab: View {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         folderStore.setFolder(url)
         saveFolder = url
-    }
-}
-
-private extension StorageTarget {
-    var label: String {
-        switch self {
-        case .local: "Local Storage"
-        case .googleDrive: "Google Drive"
-        case .oneDrive: "OneDrive"
-        case .iCloud: "iCloud"
-        }
     }
 }

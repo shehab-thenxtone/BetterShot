@@ -2,7 +2,25 @@ import Foundation
 
 /// Where the cloud icon's one-click action sends a capture (requirements §4.9).
 public enum StorageTarget: String, Codable, CaseIterable, Sendable {
-    case local, googleDrive, oneDrive, iCloud
+    case local, googleDrive, oneDrive, iCloud, whatsApp, telegram
+
+    /// The chat apps are shares, not file hosts: there is no link to copy.
+    public var messagingApp: MessagingApp? {
+        switch self {
+        case .whatsApp: .whatsApp
+        case .telegram: .telegram
+        default: nil
+        }
+    }
+
+    /// The linked-account host behind this target, if it has one.
+    public var cloudProvider: CloudProvider? {
+        switch self {
+        case .googleDrive: .googleDrive
+        case .oneDrive: .oneDrive
+        default: nil
+        }
+    }
 }
 
 public enum GIFExportMode: Equatable, Codable, Sendable {

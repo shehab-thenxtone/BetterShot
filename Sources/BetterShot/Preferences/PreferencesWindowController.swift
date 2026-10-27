@@ -7,11 +7,13 @@ import SwiftUI
 final class PreferencesWindowController {
     private let model: SettingsModel
     private let folderStore: any SaveFolderStoring
+    private let destinations: DestinationsCenter
     private var window: NSWindow?
 
-    init(model: SettingsModel, folderStore: any SaveFolderStoring) {
+    init(model: SettingsModel, folderStore: any SaveFolderStoring, destinations: DestinationsCenter) {
         self.model = model
         self.folderStore = folderStore
+        self.destinations = destinations
     }
 
     func show() {
@@ -29,7 +31,7 @@ final class PreferencesWindowController {
             defer: false
         )
         window.title = "BetterShot Preferences"
-        window.contentView = NSHostingView(rootView: PreferencesView(model: model, folderStore: folderStore))
+        window.contentView = NSHostingView(rootView: PreferencesView(model: model, folderStore: folderStore, destinations: destinations))
         window.isReleasedWhenClosed = false
         window.center()
         return window

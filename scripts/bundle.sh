@@ -38,5 +38,16 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
+# Optional OAuth client IDs for Google Drive / OneDrive linking (never committed; see docs/PLAN.md §4).
+# The same names also work as plain environment variables when running the binary directly.
+for pair in "BetterShotGoogleClientID:BETTERSHOT_GOOGLE_CLIENT_ID" \
+            "BetterShotGoogleClientSecret:BETTERSHOT_GOOGLE_CLIENT_SECRET" \
+            "BetterShotOneDriveClientID:BETTERSHOT_ONEDRIVE_CLIENT_ID"; do
+    key="${pair%%:*}"; var="${pair##*:}"
+    if [ -n "${!var:-}" ]; then
+        /usr/libexec/PlistBuddy -c "Add :$key string ${!var}" "$APP/Contents/Info.plist"
+    fi
+done
+
 codesign --force --sign "$SIGN_IDENTITY" "$APP"
 echo "Built $APP"

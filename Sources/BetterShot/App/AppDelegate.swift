@@ -64,7 +64,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editor.onDiscard = { actions.recordClosed($0) }
         editor.captureForMerge = { mode in await coordinator.captureImage(mode)?.image }
 
-        let preferences = PreferencesWindowController(model: model, folderStore: folderStore)
+        let authorizer = OAuthAuthorizer(configs: OAuthConfigLoader.configs(), store: KeychainTokenStore())
+        let destinations = DestinationsCenter(
+            authorizer: authorizer,
+            uploaders: [.googleDrive: GoogleDriveUploader(authorizer: authorizer), .oneDrive: OneDriveUploader(authorizer: authorizer)],
+            toast: toast,
+            filenameTemplate: { model.settings.filenameTemplate }
+        )
+        destinations.recordClosed = { actions.recordClosed($0) }
+        actions.destinations = destinations
+
+        let preferences = PreferencesWindowController(model: model, folderStore: folderStore, destinations: destinations)
+        destinations.showPreferences = { preferences.show() }
         let router = AppCommandRouter(
             captureCoordinator: coordinator,
             actions: AppCommandRouter.Actions(

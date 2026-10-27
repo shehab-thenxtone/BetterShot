@@ -12,6 +12,9 @@ final class ResultActions {
     private let recentlyClosed: RecentlyClosedStore
     private let logger = Logger(subsystem: "com.bettershot.app", category: "result-actions")
 
+    /// Set by the composition root once the destinations exist (they need the actions' own recently-closed slot).
+    var destinations: DestinationsCenter?
+
     /// `settings` is read per action so Preferences changes apply immediately.
     init(folderStore: any SaveFolderStoring, settings: @escaping () -> AppSettings, recentlyClosed: RecentlyClosedStore) {
         self.folderStore = folderStore
@@ -42,18 +45,11 @@ final class ResultActions {
         }
     }
 
-    /// The cloud icon follows the default storage target; only Local Storage exists until phase 13.
+    /// The cloud icon follows the default storage target. Local Storage saves silently; every other target goes
+    /// through the destinations center, which returns false (after telling the user) when it can't send yet.
     @discardableResult
     func upload(_ image: CGImage) -> Bool {
-        switch settings().defaultStorageTarget {
-        case .local:
-            return save(image)
-        case .googleDrive, .oneDrive, .iCloud:
-            CaptureAlerts.presentInfo(
-                title: "Destination not linked",
-                message: "Linking cloud accounts isn't available yet. Use Save to store the image locally."
-            )
-            return false
-        }
+        let target = settings().defaultStorageTarget
+        return target == .local ? save(image) : (destinations?.send(image, to: target) ?? false)
     }
 }
